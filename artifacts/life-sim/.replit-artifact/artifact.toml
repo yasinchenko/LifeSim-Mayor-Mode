@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Life Simulation"
+version = "1.0.0"
+id = "artifacts/life-sim"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22164
+
+[services.development]
+run = "pnpm --filter @workspace/life-sim run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/life-sim", "run", "build" ]
+publicDir = "artifacts/life-sim/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22164"
+BASE_PATH = "/"

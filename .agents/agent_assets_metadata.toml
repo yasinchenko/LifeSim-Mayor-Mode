@@ -1,0 +1,20 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "4rwUiAPVDqjW-Ynn4FGq9"
+uri = "file://system-description.md"
+type = "text"
+title = "Life Simulation — Техническое описание системы"
+
+[[outputs]]
+id = "du8F7Hz6f6UZIgwbTDmmz"
+uri = "file://.local/needs-system.md"
+type = "text"
+title = "Система потребностей жителей"
+
+[[outputs]]
+id = "1TAIw0UWSTVQ8a9Sn3wLN"
+uri = "file://.local/organizations-system.md"
+type = "text"
+title = "Логика работы организаций"

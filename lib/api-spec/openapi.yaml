@@ -1,0 +1,753 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Life Simulation API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: simulation
+    description: Simulation control
+  - name: agents
+    description: Agent operations
+  - name: businesses
+    description: Business operations
+  - name: goods
+    description: Goods operations
+  - name: government
+    description: Government operations
+  - name: config
+    description: Configuration operations
+  - name: stats
+    description: Statistics operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /simulation/start:
+    post:
+      operationId: startSimulation
+      tags: [simulation]
+      summary: Start the simulation
+      responses:
+        "200":
+          description: Simulation started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationState"
+
+  /simulation/stop:
+    post:
+      operationId: stopSimulation
+      tags: [simulation]
+      summary: Stop the simulation
+      responses:
+        "200":
+          description: Simulation stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationState"
+
+  /simulation/reset:
+    post:
+      operationId: resetSimulation
+      tags: [simulation]
+      summary: Reset the simulation and generate a new population
+      responses:
+        "200":
+          description: Simulation reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationState"
+
+  /simulation/state:
+    get:
+      operationId: getSimulationState
+      tags: [simulation]
+      summary: Get current simulation state with aggregated statistics
+      responses:
+        "200":
+          description: Current simulation state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationState"
+
+  /agents:
+    get:
+      operationId: listAgents
+      tags: [agents]
+      summary: Get paginated list of agents
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, age, mood, money, currentAction]
+        - name: sortDir
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+        - name: filterAction
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentListResponse"
+
+  /agents/{id}:
+    get:
+      operationId: getAgent
+      tags: [agents]
+      summary: Get agent profile with needs and relations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Agent profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDetail"
+        "404":
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /businesses:
+    get:
+      operationId: listBusinesses
+      tags: [businesses]
+      summary: Get list of businesses
+      responses:
+        "200":
+          description: List of businesses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Business"
+
+  /goods:
+    get:
+      operationId: listGoods
+      tags: [goods]
+      summary: Get list of goods with prices
+      responses:
+        "200":
+          description: List of goods
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Good"
+
+  /government:
+    get:
+      operationId: getGovernment
+      tags: [government]
+      summary: Get government finances
+      responses:
+        "200":
+          description: Government state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernmentState"
+
+  /config:
+    get:
+      operationId: getConfig
+      tags: [config]
+      summary: Get current simulation configuration
+      responses:
+        "200":
+          description: Current config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimConfig"
+    put:
+      operationId: updateConfig
+      tags: [config]
+      summary: Update simulation configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimConfigUpdate"
+      responses:
+        "200":
+          description: Updated config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimConfig"
+
+  /stats/history:
+    get:
+      operationId: getStatsHistory
+      tags: [stats]
+      summary: Get history of aggregated metrics
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Stats history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StatsSnapshot"
+
+  /stats/summary:
+    get:
+      operationId: getStatsSummary
+      tags: [stats]
+      summary: Get current summary statistics
+      responses:
+        "200":
+          description: Summary statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsSummary"
+
+  /stats/top-agents:
+    get:
+      operationId: getTopAgents
+      tags: [stats]
+      summary: Get top agents by wealth and mood
+      responses:
+        "200":
+          description: Top agents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopAgentsResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    SimulationState:
+      type: object
+      properties:
+        tick:
+          type: integer
+        running:
+          type: boolean
+        gameHour:
+          type: integer
+        gameDay:
+          type: integer
+        population:
+          type: integer
+        avgMood:
+          type: number
+        gdp:
+          type: number
+        unemploymentRate:
+          type: number
+        governmentBudget:
+          type: number
+        totalTaxCollected:
+          type: number
+        avgWealth:
+          type: number
+      required:
+        - tick
+        - running
+        - gameHour
+        - gameDay
+        - population
+        - avgMood
+        - gdp
+        - unemploymentRate
+        - governmentBudget
+        - totalTaxCollected
+        - avgWealth
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        gender:
+          type: string
+        age:
+          type: integer
+        mood:
+          type: number
+        money:
+          type: number
+        personality:
+          type: string
+        socialization:
+          type: number
+        currentAction:
+          type: string
+        employerId:
+          type: ["integer", "null"]
+      required:
+        - id
+        - name
+        - gender
+        - age
+        - mood
+        - money
+        - personality
+        - socialization
+        - currentAction
+
+    AgentNeeds:
+      type: object
+      properties:
+        hunger:
+          type: number
+        comfort:
+          type: number
+        social:
+          type: number
+        health:
+          type: number
+        sleep:
+          type: number
+      required:
+        - hunger
+        - comfort
+        - social
+        - health
+        - sleep
+
+    AgentRelation:
+      type: object
+      properties:
+        otherId:
+          type: integer
+        otherName:
+          type: string
+        friendshipLevel:
+          type: number
+      required:
+        - otherId
+        - otherName
+        - friendshipLevel
+
+    JobHistoryEntry:
+      type: object
+      properties:
+        tick:
+          type: integer
+        event:
+          type: string
+          enum: [hired, fired, retired]
+        businessId:
+          type: ["integer", "null"]
+        businessName:
+          type: ["string", "null"]
+      required:
+        - tick
+        - event
+        - businessId
+        - businessName
+
+    AgentDetail:
+      allOf:
+        - $ref: "#/components/schemas/Agent"
+        - type: object
+          properties:
+            needs:
+              $ref: "#/components/schemas/AgentNeeds"
+            relations:
+              type: array
+              items:
+                $ref: "#/components/schemas/AgentRelation"
+            recentActions:
+              type: array
+              items:
+                type: string
+              description: Last 10 actions taken by this agent
+            isRetired:
+              type: boolean
+              description: Whether this agent has retired
+            jobHistory:
+              type: array
+              items:
+                $ref: "#/components/schemas/JobHistoryEntry"
+              description: Most recent 20 job events for this agent
+          required:
+            - needs
+            - relations
+            - recentActions
+            - isRetired
+            - jobHistory
+
+    AgentListResponse:
+      type: object
+      properties:
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Agent"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - agents
+        - total
+        - page
+        - limit
+        - totalPages
+
+    Business:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+        balance:
+          type: number
+        productionRate:
+          type: number
+        employeeCount:
+          type: integer
+        ownerId:
+          type: ["integer", "null"]
+        firedThisTick:
+          type: integer
+          description: Number of employees fired during the last simulation tick
+        hiredThisTick:
+          type: integer
+          description: Number of employees hired during the last simulation tick
+      required:
+        - id
+        - name
+        - type
+        - balance
+        - productionRate
+        - employeeCount
+        - firedThisTick
+        - hiredThisTick
+
+    Good:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        basePrice:
+          type: number
+        currentPrice:
+          type: number
+        quality:
+          type: number
+        demand:
+          type: number
+        supply:
+          type: number
+      required:
+        - id
+        - name
+        - basePrice
+        - currentPrice
+        - quality
+        - demand
+        - supply
+
+    GovernmentState:
+      type: object
+      properties:
+        budget:
+          type: number
+        totalTaxCollected:
+          type: number
+        totalSubsidiesPaid:
+          type: number
+        totalPensionPaid:
+          type: number
+        taxRate:
+          type: number
+        subsidyAmount:
+          type: number
+        pensionRate:
+          type: number
+          description: Pension as a fraction of baseSalary paid to retirees per tick (0.0 - 1.0)
+      required:
+        - budget
+        - totalTaxCollected
+        - totalSubsidiesPaid
+        - totalPensionPaid
+        - taxRate
+        - subsidyAmount
+        - pensionRate
+
+    SimConfig:
+      type: object
+      properties:
+        taxRate:
+          type: number
+          description: Tax rate as a fraction (0.0 - 1.0)
+        needDecayRate:
+          type: number
+          description: How fast needs decay per tick (0.0 - 100.0)
+        tickIntervalMs:
+          type: integer
+          description: Milliseconds per simulation tick
+        initialAgents:
+          type: integer
+          description: Number of agents on reset
+        initialBusinesses:
+          type: integer
+          description: Number of businesses on reset
+        baseFoodPrice:
+          type: number
+          description: Base price for food goods
+        baseSalary:
+          type: number
+          description: Base salary per tick for employed agents
+        subsidyAmount:
+          type: number
+          description: Amount paid to agents with no money
+        socialInteractionStrength:
+          type: number
+          description: How much social interactions affect mood (0.0-10.0)
+        priceMarkup:
+          type: number
+          description: Business markup on top of base price (0.0 - 1.0)
+        pensionRate:
+          type: number
+          description: Pension as a fraction of baseSalary paid to retirees per tick (0.0 - 1.0)
+      required:
+        - taxRate
+        - needDecayRate
+        - tickIntervalMs
+        - initialAgents
+        - initialBusinesses
+        - baseFoodPrice
+        - baseSalary
+        - subsidyAmount
+        - socialInteractionStrength
+        - priceMarkup
+        - pensionRate
+
+    SimConfigUpdate:
+      type: object
+      properties:
+        taxRate:
+          type: number
+        needDecayRate:
+          type: number
+        tickIntervalMs:
+          type: integer
+        initialAgents:
+          type: integer
+        initialBusinesses:
+          type: integer
+        baseFoodPrice:
+          type: number
+        baseSalary:
+          type: number
+        subsidyAmount:
+          type: number
+        socialInteractionStrength:
+          type: number
+        priceMarkup:
+          type: number
+        pensionRate:
+          type: number
+
+    StatsSnapshot:
+      type: object
+      properties:
+        tick:
+          type: integer
+        gameHour:
+          type: integer
+        gameDay:
+          type: integer
+        avgMood:
+          type: number
+        gdp:
+          type: number
+        population:
+          type: integer
+        avgWealth:
+          type: number
+        unemploymentRate:
+          type: number
+        governmentBudget:
+          type: number
+        recordedAt:
+          type: string
+          format: date-time
+      required:
+        - tick
+        - gameHour
+        - gameDay
+        - avgMood
+        - gdp
+        - population
+        - avgWealth
+        - unemploymentRate
+        - governmentBudget
+        - recordedAt
+
+    StatsSummary:
+      type: object
+      properties:
+        totalAgents:
+          type: integer
+        totalBusinesses:
+          type: integer
+        totalGoods:
+          type: integer
+        employedAgents:
+          type: integer
+        unemployedAgents:
+          type: integer
+        avgMood:
+          type: number
+        avgWealth:
+          type: number
+        avgHealth:
+          type: number
+        avgSleep:
+          type: number
+        richestAgent:
+          type: string
+        happiestAgent:
+          type: string
+        mostPopularGood:
+          type: string
+        gdp:
+          type: number
+        birthsLastTick:
+          type: integer
+        deathsLastTick:
+          type: integer
+        profitableBusinesses:
+          type: integer
+        unprofitableBusinesses:
+          type: integer
+        marketBalance:
+          type: number
+        totalDemand:
+          type: number
+        totalSupply:
+          type: number
+      required:
+        - totalAgents
+        - totalBusinesses
+        - totalGoods
+        - employedAgents
+        - unemployedAgents
+        - avgMood
+        - avgWealth
+        - avgHealth
+        - avgSleep
+        - gdp
+        - birthsLastTick
+        - deathsLastTick
+        - profitableBusinesses
+        - unprofitableBusinesses
+        - marketBalance
+        - totalDemand
+        - totalSupply
+
+    TopAgentsResponse:
+      type: object
+      properties:
+        byWealth:
+          type: array
+          items:
+            $ref: "#/components/schemas/Agent"
+        byMood:
+          type: array
+          items:
+            $ref: "#/components/schemas/Agent"
+        byAge:
+          type: array
+          items:
+            $ref: "#/components/schemas/Agent"
+        bySocialization:
+          type: array
+          items:
+            $ref: "#/components/schemas/Agent"
+      required:
+        - byWealth
+        - byMood
+        - byAge
+        - bySocialization
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
