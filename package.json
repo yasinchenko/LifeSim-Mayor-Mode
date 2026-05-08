@@ -3,8 +3,14 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "preinstall": "node scripts/enforce-pnpm.mjs",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "desktop:build": "node scripts/build-desktop.mjs",
+    "desktop:dist": "node scripts/build-desktop.mjs --package",
+    "web:build": "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/life-sim run build",
+    "web:preview": "node scripts/start-web-preview.mjs",
+    "web:preview:build": "pnpm run web:build && pnpm run web:preview",
+    "web:dev": "node scripts/start-web-dev.mjs",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },

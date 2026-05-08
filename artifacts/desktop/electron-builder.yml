@@ -1,0 +1,27 @@
+appId: com.lifesim.mayormode
+productName: LifeSim Mayor Mode
+directories:
+  output: ../../release/desktop
+files:
+  - dist/**
+  - package.json
+  - from: ../api-server/dist
+    to: api-server/dist
+  - from: ../life-sim/dist/public
+    to: life-sim/public
+asarUnpack:
+  - node_modules/better-sqlite3/**/*
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: dir
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+publish: null

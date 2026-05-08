@@ -1,0 +1,22 @@
+{
+  "name": "@workspace/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node ../../scripts/start-electron.mjs",
+    "dist": "electron-builder --config electron-builder.yml"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "electron": "39.2.6",
+    "electron-builder": "^26.0.12",
+    "electron-builder-squirrel-windows": "^26.8.1",
+    "typescript": "~5.9.2"
+  }
+}

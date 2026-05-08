@@ -9,7 +9,6 @@ import EconomyPage from "@/pages/economy";
 import GovernmentPage from "@/pages/government";
 import SettingsPage from "@/pages/settings";
 import Layout from "@/components/layout";
-import { AdminProvider } from "@/contexts/admin-context";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,12 +38,10 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AdminProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-          <Toaster />
-        </WouterRouter>
-      </AdminProvider>
+      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <Router />
+        <Toaster />
+      </WouterRouter>
     </QueryClientProvider>
   );
 }

@@ -8,6 +8,7 @@ import configRouter from "./config";
 import statsRouter from "./stats";
 import adminRouter from "./admin";
 import debugRouter from "./debug";
+import decisionsRouter from "./decisions";
 
 const router: IRouter = Router();
 
@@ -19,6 +20,7 @@ router.use(economyRouter);
 router.use(governmentRouter);
 router.use(configRouter);
 router.use(statsRouter);
+router.use(decisionsRouter);
 router.use(debugRouter);
 
 export default router;

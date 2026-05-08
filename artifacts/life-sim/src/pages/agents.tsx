@@ -9,7 +9,7 @@ import {
   type ListAgentsQueryResult,
 } from "@workspace/api-client-react";
 
-import { ChevronUp, ChevronDown, BarChart2, Table2 } from "lucide-react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type AgentItem = NonNullable<ListAgentsQueryResult>["agents"][number];
@@ -17,7 +17,6 @@ type AgentItem = NonNullable<ListAgentsQueryResult>["agents"][number];
 type SortBy = "name" | "age" | "mood" | "money" | "currentAction";
 type SortDir = "asc" | "desc";
 type GroupBy = "personality" | "employment" | "ageGroup";
-type ViewMode = "table" | "analysis";
 
 interface AgentStatSnapshot {
   tick: number;
@@ -222,7 +221,6 @@ function SparklineTooltip({ history, statKey, color, agentName }: {
 }
 
 export default function AgentsPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -308,15 +306,13 @@ export default function AgentsPage() {
   }, []);
 
   useEffect(() => {
-    if (viewMode === "analysis") {
-      fetchGroups();
-      fetchNeeds();
-      const interval = running ? 8000 : 60000;
-      const id1 = setInterval(fetchGroups, interval);
-      const id2 = setInterval(fetchNeeds, interval);
-      return () => { clearInterval(id1); clearInterval(id2); };
-    }
-  }, [viewMode, fetchGroups, fetchNeeds, running]);
+    fetchGroups();
+    fetchNeeds();
+    const interval = running ? 8000 : 60000;
+    const id1 = setInterval(fetchGroups, interval);
+    const id2 = setInterval(fetchNeeds, interval);
+    return () => { clearInterval(id1); clearInterval(id2); };
+  }, [fetchGroups, fetchNeeds, running]);
 
   const handleSort = (col: SortBy) => {
     if (sortBy === col) {
@@ -377,138 +373,25 @@ export default function AgentsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center bg-secondary border border-border rounded overflow-hidden">
+        <div className="flex items-center gap-1 flex-wrap">
+          {GROUP_BY_OPTIONS.map(opt => (
             <button
-              onClick={() => setViewMode("table")}
+              key={opt.key}
+              onClick={() => setGroupBy(opt.key)}
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors",
-                viewMode === "table"
-                  ? "bg-[hsl(173,80%,40%)]/15 text-[hsl(173,80%,40%)]"
-                  : "text-muted-foreground hover:text-foreground"
+                "px-2.5 py-1.5 rounded text-xs font-medium border transition-colors",
+                groupBy === opt.key
+                  ? "bg-primary/15 border-primary/40 text-primary"
+                  : "bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground"
               )}
             >
-              <Table2 className="w-3.5 h-3.5" />
-              Таблица
+              {opt.label}
             </button>
-            <button
-              onClick={() => setViewMode("analysis")}
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors",
-                viewMode === "analysis"
-                  ? "bg-[hsl(173,80%,40%)]/15 text-[hsl(173,80%,40%)]"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <BarChart2 className="w-3.5 h-3.5" />
-              Анализ
-            </button>
-          </div>
-
-          {viewMode === "table" && (
-            <select
-              value={filterAction}
-              onChange={e => { setFilterAction(e.target.value); setPage(1); }}
-              className="bg-secondary text-secondary-foreground text-xs px-2 py-1.5 rounded border border-border outline-none"
-            >
-              <option value="">Все действия</option>
-              {Object.entries(ACTION_LABELS).map(([val, label]) => (
-                <option key={val} value={val}>{label}</option>
-              ))}
-            </select>
-          )}
-
-          {viewMode === "analysis" && (
-            <div className="flex items-center gap-1">
-              {GROUP_BY_OPTIONS.map(opt => (
-                <button
-                  key={opt.key}
-                  onClick={() => setGroupBy(opt.key)}
-                  className={cn(
-                    "px-2.5 py-1.5 rounded text-xs font-medium border transition-colors",
-                    groupBy === opt.key
-                      ? "bg-primary/15 border-primary/40 text-primary"
-                      : "bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground"
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
+          ))}
         </div>
       </div>
 
-      {viewMode === "table" && (
-        <>
-          <div className="bg-card border border-card-border rounded overflow-hidden">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border">
-                  {([
-                    ["name", "Имя"],
-                    ["age", "Возраст"],
-                    ["mood", "Настроение"],
-                    ["money", "Деньги"],
-                    ["currentAction", "Действие"],
-                  ] as [SortBy, string][]).map(([col, label]) => (
-                    <th
-                      key={col}
-                      onClick={() => handleSort(col)}
-                      className="text-left px-3 py-2.5 text-[10px] font-medium tracking-widest uppercase text-muted-foreground cursor-pointer hover:text-foreground select-none"
-                    >
-                      {label} <SortIcon col={col} />
-                    </th>
-                  ))}
-                  <th className="text-left px-3 py-2.5 text-[10px] font-medium tracking-widest uppercase text-muted-foreground">Профессия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading ? (
-                  Array.from({ length: 10 }).map((_, i) => (
-                    <tr key={i} className="border-b border-border/50">
-                      {Array.from({ length: 6 }).map((_, j) => (
-                        <td key={j} className="px-3 py-2">
-                          <div className="h-3 bg-muted rounded animate-pulse" style={{ width: `${40 + Math.random() * 40}%` }} />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : (data?.agents ?? []).map(agent => (
-                  <AgentRow
-                    key={agent.id}
-                    agent={agent}
-                    isNumericSort={statConfig.numeric}
-                    onMouseEnter={handleRowMouseEnter}
-                    onMouseLeave={handleRowMouseLeave}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="px-3 py-1.5 text-xs bg-secondary text-secondary-foreground rounded disabled:opacity-40 hover:opacity-90"
-            >
-              Назад
-            </button>
-            <span className="text-xs text-muted-foreground">Страница {page} из {data?.totalPages ?? "?"}</span>
-            <button
-              onClick={() => setPage(p => Math.min(data?.totalPages ?? p, p + 1))}
-              disabled={!data || page >= data.totalPages}
-              className="px-3 py-1.5 text-xs bg-secondary text-secondary-foreground rounded disabled:opacity-40 hover:opacity-90"
-            >
-              Вперёд
-            </button>
-          </div>
-        </>
-      )}
-
-      {viewMode === "analysis" && (
-        <div className="space-y-4">
+      <div className="space-y-4">
           {groupLoading && !groupData && (
             <div className="bg-card border border-card-border rounded p-8 text-center text-muted-foreground text-xs">
               Загрузка данных...
@@ -636,8 +519,7 @@ export default function AgentsPage() {
               </div>
             </>
           )}
-        </div>
-      )}
+      </div>
 
       {hoveredAgentId != null && tooltipPos && (
         <div

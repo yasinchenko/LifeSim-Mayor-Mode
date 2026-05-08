@@ -1,4 +1,4 @@
-import { db } from "@workspace/db";
+import { db, sqlite } from "@workspace/db";
 import {
   agentsTable,
   needsTable,
@@ -7,6 +7,7 @@ import {
   goodsTable,
   simStateTable,
   simConfigTable,
+  dailyDecreesTable,
   statsHistoryTable,
   agentStatHistoryTable,
   type Agent,
@@ -14,7 +15,7 @@ import {
   type Business,
   type Good,
 } from "@workspace/db";
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { logger } from "./logger";
 
 export interface SimulationConfig {
@@ -56,7 +57,7 @@ interface JobHistoryEntry {
   duration?: number;
 }
 
-interface AgentState extends Agent {
+interface AgentState extends Omit<Agent, "jobHistory"> {
   needs: { hunger: number; comfort: number; social: number; health: number; sleep: number; education: number; entertainment: number; faith: number; housingSafety: number; financialSafety: number; physicalSafety: number; socialRating: number; wellbeing: number };
   needsId: number;
   recentActions: string[];
@@ -126,11 +127,815 @@ interface SimState {
   running: boolean;
   gameHour: number;
   gameDay: number;
+  scenarioType: ScenarioType;
+  goalType: GoalType;
+  dayLimit: number;
+  gameStatus: GameStatus;
+  gameOutcomeReason: string | null;
+  actionPointsRemaining: number;
+  actionPointsMax: number;
   governmentBudget: number;
   totalTaxCollected: number;
   totalSubsidiesPaid: number;
   totalPensionPaid: number;
   totalPublicServicesPaid: number;
+}
+
+type ScenarioType = "balanced" | "crisis" | "growth" | "stability";
+type GoalType = "balanced" | "crisis_recovery" | "economic_growth" | "social_stability";
+type GameStatus = "active" | "victory" | "defeat";
+
+interface NewGameOptions {
+  scenarioType: ScenarioType;
+  goalType: GoalType;
+  dayLimit: number;
+}
+
+interface GoalEvaluation {
+  status: GameStatus;
+  reason: string | null;
+  progress: number;
+  residentsScore: number;
+  businessScore: number;
+  governmentScore: number;
+}
+
+type DailyDecreeStatus = "pending" | "active" | "expired";
+type DailyDecisionSide = "residents" | "business" | "government";
+type DailyEventTone = "critical" | "warning" | "opportunity";
+type DailyDecisionActivity =
+  | "resident_requests"
+  | "budget_session"
+  | "crisis_staff"
+  | "business_talks"
+  | "city_news";
+type DecisionEffectKind =
+  | "need_decay_multiplier"
+  | "social_multiplier"
+  | "tax_delta"
+  | "subsidy_multiplier"
+  | "daily_need_delta"
+  | "daily_business_delta"
+  | "public_quality_delta"
+  | "food_supply_delta";
+
+interface DecisionEffect {
+  kind: DecisionEffectKind;
+  label: string;
+  value: number;
+  need?: keyof AgentState["needs"];
+  businessType?: string;
+}
+
+interface DailyDecisionDefinition {
+  id: string;
+  title: string;
+  side: DailyDecisionSide;
+  sideLabel: string;
+  category: "social" | "economy" | "safety" | "infrastructure";
+  activity: DailyDecisionActivity;
+  responseLabel: string;
+  description: string;
+  impactSummary: string;
+  tradeoff: string;
+  actionPointCost: number;
+  budgetCost: number;
+  cooldownDays: number;
+  delayDays: number;
+  durationDays: number;
+  effects: DecisionEffect[];
+  sideEffects?: DailyDecisionSideEffect[];
+}
+
+interface DailyEventCard {
+  id: DailyDecisionSide;
+  side: DailyDecisionSide;
+  sideLabel: string;
+  title: string;
+  eventText: string;
+  daySummary: string;
+  tone: DailyEventTone;
+  activity: DailyDecisionActivity;
+  decisionIds: string[];
+}
+
+interface DailyDecisionSideEffect {
+  title: string;
+  description: string;
+  delayDays: number;
+  durationDays: number;
+  effects: DecisionEffect[];
+}
+
+type FactionDemandStatus = "active" | "completed" | "ignored";
+
+interface FactionDemandOutcome {
+  label: string;
+  budgetDelta: number;
+  effects: DecisionEffect[];
+  pressureDelta: number;
+}
+
+interface FactionDemandRecord {
+  id: string;
+  side: DailyDecisionSide;
+  sideLabel: string;
+  title: string;
+  description: string;
+  requirement: string;
+  pressure: number;
+  createdDay: number;
+  deadlineDay: number;
+  status: FactionDemandStatus;
+  resolvedDay: number | null;
+  resolutionLabel: string | null;
+  reward: FactionDemandOutcome;
+  penalty: FactionDemandOutcome;
+}
+
+interface DailyDecreeRecord {
+  id: number;
+  decisionId: string;
+  title: string;
+  description: string;
+  status: DailyDecreeStatus;
+  issuedDay: number;
+  startDay: number;
+  endDay: number;
+  actionPointCost: number;
+  budgetCost: number;
+  cooldownDays: number;
+  effects: DecisionEffect[];
+}
+
+type ResidentRequestCategory = "finance" | "work" | "food" | "health" | "comfort" | "safety";
+type ResidentRequestAction = "help" | "decline";
+
+interface ResidentRequestRecord {
+  id: string;
+  agentId: number;
+  residentName: string;
+  residentAge: number;
+  district: string;
+  category: ResidentRequestCategory;
+  categoryLabel: string;
+  problem: string;
+  need?: keyof AgentState["needs"];
+  helpCost: number;
+  createdTick: number;
+  createdDay: number;
+}
+
+interface DecisionModifiers {
+  needDecayMultiplier: number;
+  socialMultiplier: number;
+  taxDelta: number;
+  subsidyMultiplier: number;
+}
+
+const DAILY_ACTION_POINTS_MAX = 1;
+const RESIDENT_REQUEST_BUFFER_MAX = 30;
+const RESIDENT_REQUEST_DISTRICTS = [
+  "Северный квартал",
+  "Старый центр",
+  "Рабочая слобода",
+  "Южные дома",
+  "Прибрежный район",
+  "Новый массив",
+];
+const RESIDENT_REQUEST_CATEGORY_LABELS: Record<ResidentRequestCategory, string> = {
+  finance: "Финансы",
+  work: "Работа",
+  food: "Еда",
+  health: "Здоровье",
+  comfort: "Комфорт",
+  safety: "Безопасность",
+};
+
+const DAILY_DECISION_CATALOG: DailyDecisionDefinition[] = [
+  {
+    id: "residents_targeted_aid",
+    title: "Адресная помощь",
+    side: "residents",
+    sideLabel: "Жители",
+    category: "social",
+    activity: "resident_requests",
+    responseLabel: "Принять обращения в работу",
+    description: "Мэрия быстро закрывает самые острые бытовые обращения и помогает семьям, которые просели сильнее остальных.",
+    impactSummary: "+жители, +благополучие, -бюджет",
+    tradeoff: "Бизнес не получает поддержки сегодня, а часть спроса на еду может вырасти.",
+    actionPointCost: 1,
+    budgetCost: 1400,
+    cooldownDays: 2,
+    delayDays: 0,
+    durationDays: 2,
+    effects: [
+      { kind: "daily_need_delta", need: "wellbeing", label: "Благополучие жителей ежедневно растет", value: 0.8 },
+      { kind: "daily_need_delta", need: "financialSafety", label: "Финансовая безопасность немного восстанавливается", value: 0.7 },
+    ],
+    sideEffects: [
+      {
+        title: "Усталость бюджета после адресной помощи",
+        description: "Через несколько дней финансовый отдел ужесточает мелкие программы, чтобы компенсировать срочные выплаты.",
+        delayDays: 3,
+        durationDays: 4,
+        effects: [
+          { kind: "subsidy_multiplier", label: "Компенсационная экономия снижает гибкость субсидий", value: 0.96 },
+          { kind: "daily_need_delta", need: "socialRating", label: "Часть жителей замечает, что помощь дошла не до всех", value: -0.18 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "residents_food_subsidy",
+    title: "Временные субсидии на еду",
+    side: "residents",
+    sideLabel: "Жители",
+    category: "social",
+    activity: "budget_session",
+    responseLabel: "Выделить короткую субсидию",
+    description: "На два дня усиливается продовольственная поддержка, чтобы сгладить рост цен и нехватку доступной еды.",
+    impactSummary: "+жители, +еда, -бюджет",
+    tradeoff: "Расходы растут сразу, а бизнес может привыкнуть к повышенному спросу.",
+    actionPointCost: 1,
+    budgetCost: 1100,
+    cooldownDays: 3,
+    delayDays: 0,
+    durationDays: 2,
+    effects: [
+      { kind: "need_decay_multiplier", label: "Базовые потребности проседают медленнее", value: 0.94 },
+      { kind: "subsidy_multiplier", label: "Ежедневные субсидии временно усилены", value: 1.12 },
+    ],
+    sideEffects: [
+      {
+        title: "Привыкание рынка к продовольственной поддержке",
+        description: "После всплеска спроса магазины осторожнее снижают цены и часть семей снова чувствует давление бюджета.",
+        delayDays: 4,
+        durationDays: 4,
+        effects: [
+          { kind: "daily_need_delta", need: "financialSafety", label: "Расходы семей на еду снова давят на кошельки", value: -0.22 },
+          { kind: "tax_delta", label: "Город временно компенсирует расходы сбором", value: 0.008 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "residents_public_promise",
+    title: "Публичное обещание",
+    side: "residents",
+    sideLabel: "Жители",
+    category: "social",
+    activity: "city_news",
+    responseLabel: "Выступить с публичной реакцией",
+    description: "Мэр признает проблему и обещает адресный план. Это дешевле прямой помощи, но эффект в основном репутационный.",
+    impactSummary: "+настроение, +доверие, слабый эффект",
+    tradeoff: "Без реальных расходов проблема может вернуться через пару дней.",
+    actionPointCost: 1,
+    budgetCost: 0,
+    cooldownDays: 2,
+    delayDays: 0,
+    durationDays: 1,
+    effects: [
+      { kind: "daily_need_delta", need: "socialRating", label: "Социальная оценка власти немного растет", value: 0.8 },
+      { kind: "daily_need_delta", need: "wellbeing", label: "Настроение стабилизируется за счет коммуникации", value: 0.4 },
+    ],
+    sideEffects: [
+      {
+        title: "Проверка обещаний",
+        description: "Если за словами не последуют заметные изменения, общественная оценка понемногу откатывается.",
+        delayDays: 3,
+        durationDays: 3,
+        effects: [
+          { kind: "daily_need_delta", need: "socialRating", label: "Невыполненные ожидания давят на доверие", value: -0.25 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "residents_mobile_clinics",
+    title: "Мобильные медбригады",
+    side: "residents",
+    sideLabel: "Жители",
+    category: "social",
+    activity: "crisis_staff",
+    responseLabel: "Отправить врачей в районы",
+    description: "Временные бригады закрывают самые слабые точки по здоровью и разгружают больницы.",
+    impactSummary: "+здоровье, +доверие, -бюджет",
+    tradeoff: "После кампании останется нагрузка на расписание больниц и закупки.",
+    actionPointCost: 1,
+    budgetCost: 1300,
+    cooldownDays: 4,
+    delayDays: 0,
+    durationDays: 3,
+    effects: [
+      { kind: "daily_need_delta", need: "health", label: "Здоровье жителей ежедневно улучшается", value: 0.75 },
+      { kind: "daily_need_delta", need: "wellbeing", label: "Люди спокойнее относятся к медицинским рискам", value: 0.35 },
+    ],
+    sideEffects: [
+      {
+        title: "Медицинская очередь после рейдов",
+        description: "Выявленные проблемы создают хвост обращений, и больницы несколько дней работают напряженнее.",
+        delayDays: 3,
+        durationDays: 5,
+        effects: [
+          { kind: "public_quality_delta", businessType: "hospital", label: "Больницы временно теряют качество из-за перегруза", value: -0.22 },
+          { kind: "daily_need_delta", need: "sleep", label: "Персонал и семьи хуже восстанавливаются", value: -0.12 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "residents_housing_repairs",
+    title: "Аварийный ремонт дворов",
+    side: "residents",
+    sideLabel: "Жители",
+    category: "infrastructure",
+    activity: "resident_requests",
+    responseLabel: "Закрыть опасные адреса",
+    description: "Город быстро чинит подъезды, освещение и дворы там, где безопасность жилья просела сильнее всего.",
+    impactSummary: "+жилье, +комфорт, эффект завтра",
+    tradeoff: "Работы создают шум и временно поднимают коммунальное раздражение.",
+    actionPointCost: 1,
+    budgetCost: 1700,
+    cooldownDays: 5,
+    delayDays: 1,
+    durationDays: 4,
+    effects: [
+      { kind: "daily_need_delta", need: "housingSafety", label: "Безопасность жилья заметно растет", value: 0.85 },
+      { kind: "daily_need_delta", need: "comfort", label: "Комфорт дворов и домов восстанавливается", value: 0.35 },
+    ],
+    sideEffects: [
+      {
+        title: "Ремонтная усталость районов",
+        description: "Пока подрядчики заканчивают хвосты, жители жалуются на шум и перекрытые проходы.",
+        delayDays: 2,
+        durationDays: 3,
+        effects: [
+          { kind: "daily_need_delta", need: "sleep", label: "Шум ремонта немного ухудшает сон", value: -0.22 },
+          { kind: "daily_need_delta", need: "wellbeing", label: "Бытовое раздражение временно растет", value: -0.18 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "residents_quiet_evenings",
+    title: "Тихие вечера",
+    side: "residents",
+    sideLabel: "Жители",
+    category: "safety",
+    activity: "city_news",
+    responseLabel: "Ограничить ночной шум",
+    description: "Мэрия вводит короткий режим тишины и усиливает работу с конфликтными точками вечером.",
+    impactSummary: "+сон, +безопасность, -сервисы",
+    tradeoff: "Сервисный бизнес теряет часть вечерней выручки и может отложить найм.",
+    actionPointCost: 1,
+    budgetCost: 400,
+    cooldownDays: 4,
+    delayDays: 0,
+    durationDays: 3,
+    effects: [
+      { kind: "daily_need_delta", need: "sleep", label: "Сон жителей восстанавливается быстрее", value: 0.7 },
+      { kind: "daily_need_delta", need: "physicalSafety", label: "Вечерняя безопасность немного улучшается", value: 0.35 },
+      { kind: "daily_business_delta", businessType: "service", label: "Сервисные компании теряют вечерний оборот", value: -35 },
+    ],
+    sideEffects: [
+      {
+        title: "Сервисный отскок после режима тишины",
+        description: "После ограничений часть сервисных компаний несколько дней осторожничает с расписанием.",
+        delayDays: 3,
+        durationDays: 4,
+        effects: [
+          { kind: "daily_business_delta", businessType: "service", label: "Сервисный бизнес медленнее возвращает оборот", value: -25 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "business_micro_grants",
+    title: "Малые гранты бизнесу",
+    side: "business",
+    sideLabel: "Бизнес",
+    category: "economy",
+    activity: "business_talks",
+    responseLabel: "Поддержать закрывающиеся компании",
+    description: "Мэрия выдает короткие гранты компаниям с кассовыми разрывами, чтобы снизить риск увольнений и закрытий.",
+    impactSummary: "+бизнес, +занятость, -бюджет",
+    tradeoff: "Жители не получают прямой помощи сегодня.",
+    actionPointCost: 1,
+    budgetCost: 1600,
+    cooldownDays: 3,
+    delayDays: 0,
+    durationDays: 2,
+    effects: [
+      { kind: "daily_business_delta", businessType: "service", label: "Сервисные компании получают стабилизационные выплаты", value: 80 },
+      { kind: "daily_business_delta", businessType: "food", label: "Пищевые бизнесы получают малую поддержку", value: 60 },
+    ],
+    sideEffects: [
+      {
+        title: "Зависимость от грантов",
+        description: "Компании, привыкшие к быстрым выплатам, слабее режут расходы после завершения поддержки.",
+        delayDays: 3,
+        durationDays: 5,
+        effects: [
+          { kind: "daily_business_delta", businessType: "service", label: "Сервисные компании медленнее перестраиваются без грантов", value: -22 },
+          { kind: "daily_business_delta", businessType: "food", label: "Пищевой бизнес осторожнее держит запас денег", value: -18 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "business_tax_relief",
+    title: "Снижение налоговой нагрузки",
+    side: "business",
+    sideLabel: "Бизнес",
+    category: "economy",
+    activity: "business_talks",
+    responseLabel: "Дать рынку передышку",
+    description: "На пару дней налоговая нагрузка становится ниже, чтобы бизнес быстрее восстановил оборот.",
+    impactSummary: "+бизнес, +производство, -доходы бюджета",
+    tradeoff: "Бюджет будет собирать меньше налогов, а жители могут воспринять меру как подарок предпринимателям.",
+    actionPointCost: 1,
+    budgetCost: 0,
+    cooldownDays: 4,
+    delayDays: 0,
+    durationDays: 2,
+    effects: [
+      { kind: "tax_delta", label: "Налоговая ставка временно ниже", value: -0.03 },
+      { kind: "daily_business_delta", businessType: "workshop", label: "Производственные мастерские получают больше оборотных средств", value: 70 },
+    ],
+    sideEffects: [
+      {
+        title: "Недобор после налоговой передышки",
+        description: "Бюджет несколько дней догоняет выпавшие доходы и хуже покрывает мягкие программы.",
+        delayDays: 3,
+        durationDays: 4,
+        effects: [
+          { kind: "subsidy_multiplier", label: "Компенсация недобора снижает субсидии", value: 0.95 },
+          { kind: "daily_need_delta", need: "financialSafety", label: "Жители слабее чувствуют бюджетную защиту", value: -0.16 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "business_supply_chain",
+    title: "Поддержка цепочек поставок",
+    side: "business",
+    sideLabel: "Бизнес",
+    category: "infrastructure",
+    activity: "crisis_staff",
+    responseLabel: "Собрать штаб по поставкам",
+    description: "Город помогает фермам, мастерским и магазинам быстрее закрыть разрывы между спросом и предложением.",
+    impactSummary: "+рынок, +еда, эффект завтра",
+    tradeoff: "Эффект медленнее прямых грантов, а бюджет все равно платит за координацию.",
+    actionPointCost: 1,
+    budgetCost: 900,
+    cooldownDays: 3,
+    delayDays: 1,
+    durationDays: 3,
+    effects: [
+      { kind: "food_supply_delta", label: "Запасы еды растут каждый день", value: 4 },
+      { kind: "daily_business_delta", businessType: "farm", label: "Фермы получают логистическую поддержку", value: 55 },
+      { kind: "daily_business_delta", businessType: "workshop", label: "Мастерские закрывают часть заказов", value: 45 },
+    ],
+    sideEffects: [
+      {
+        title: "Логистический хвост",
+        description: "После ручного штаба поставщики несколько дней ждут координации сверху и хуже реагируют сами.",
+        delayDays: 4,
+        durationDays: 4,
+        effects: [
+          { kind: "food_supply_delta", label: "Запасы еды растут медленнее после ручного управления", value: -1.5 },
+          { kind: "daily_business_delta", businessType: "farm", label: "Фермы теряют часть темпа без штаба", value: -18 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "business_hiring_vouchers",
+    title: "Ваучеры на найм",
+    side: "business",
+    sideLabel: "Бизнес",
+    category: "economy",
+    activity: "business_talks",
+    responseLabel: "Компенсировать первые смены",
+    description: "Город частично компенсирует первые дни найма, чтобы компании открывали вакансии быстрее.",
+    impactSummary: "+занятость, +бизнес, -бюджет",
+    tradeoff: "После окончания ваучеров слабые компании могут снова заморозить вакансии.",
+    actionPointCost: 1,
+    budgetCost: 1400,
+    cooldownDays: 4,
+    delayDays: 0,
+    durationDays: 3,
+    effects: [
+      { kind: "daily_business_delta", businessType: "service", label: "Сервис получает деньги на первые смены", value: 55 },
+      { kind: "daily_business_delta", businessType: "workshop", label: "Мастерские охотнее берут работников", value: 50 },
+      { kind: "daily_need_delta", need: "financialSafety", label: "Перспектива работы снижает тревожность семей", value: 0.25 },
+    ],
+    sideEffects: [
+      {
+        title: "Проверка рабочих мест рынком",
+        description: "Когда ваучеры заканчиваются, часть найма оказывается временной и настроение работников проседает.",
+        delayDays: 4,
+        durationDays: 4,
+        effects: [
+          { kind: "daily_need_delta", need: "financialSafety", label: "Неустойчивые вакансии снова тревожат работников", value: -0.25 },
+          { kind: "daily_business_delta", businessType: "service", label: "Сервис пересматривает раздутые смены", value: -20 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "business_fast_permits",
+    title: "Быстрые разрешения",
+    side: "business",
+    sideLabel: "Бизнес",
+    category: "infrastructure",
+    activity: "budget_session",
+    responseLabel: "Упростить согласования",
+    description: "Мэрия на несколько дней ускоряет разрешения для расширения производств и сервисных точек.",
+    impactSummary: "+оборот, +рынок, риск контроля",
+    tradeoff: "Часть проверок переносится на потом, поэтому безопасность может получить отложенный удар.",
+    actionPointCost: 1,
+    budgetCost: 250,
+    cooldownDays: 5,
+    delayDays: 0,
+    durationDays: 3,
+    effects: [
+      { kind: "daily_business_delta", businessType: "workshop", label: "Мастерские быстрее запускают заказы", value: 65 },
+      { kind: "daily_business_delta", businessType: "service", label: "Сервис открывает дополнительные смены", value: 45 },
+    ],
+    sideEffects: [
+      {
+        title: "Долг проверок",
+        description: "Перенесенные проверки возвращаются в виде замечаний и напряжения вокруг безопасности.",
+        delayDays: 3,
+        durationDays: 5,
+        effects: [
+          { kind: "daily_need_delta", need: "physicalSafety", label: "Ускоренные разрешения создают вопросы к безопасности", value: -0.22 },
+          { kind: "daily_need_delta", need: "housingSafety", label: "Жители осторожнее оценивают среду", value: -0.12 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "business_food_contracts",
+    title: "Контракты на еду",
+    side: "business",
+    sideLabel: "Бизнес",
+    category: "economy",
+    activity: "crisis_staff",
+    responseLabel: "Закупить у местных поставщиков",
+    description: "Город заключает короткие контракты с фермами и пищевыми компаниями, чтобы выровнять полки.",
+    impactSummary: "+еда, +фермы, -бюджет",
+    tradeoff: "Закупки поднимают ожидания поставщиков и могут сделать рынок менее гибким.",
+    actionPointCost: 1,
+    budgetCost: 1000,
+    cooldownDays: 4,
+    delayDays: 0,
+    durationDays: 3,
+    effects: [
+      { kind: "food_supply_delta", label: "Поставки еды в город растут", value: 5 },
+      { kind: "daily_business_delta", businessType: "farm", label: "Фермы получают гарантированный спрос", value: 60 },
+      { kind: "daily_business_delta", businessType: "food", label: "Пищевые компании быстрее пополняют оборот", value: 45 },
+    ],
+    sideEffects: [
+      {
+        title: "Жесткие ожидания поставщиков",
+        description: "После контрактов поставщики несколько дней хуже идут на рыночные уступки.",
+        delayDays: 4,
+        durationDays: 4,
+        effects: [
+          { kind: "food_supply_delta", label: "Гибкость поставок временно падает", value: -1.25 },
+          { kind: "daily_need_delta", need: "financialSafety", label: "Цены на еду снова давят на семьи", value: -0.15 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "government_spending_audit",
+    title: "Аудит расходов",
+    side: "government",
+    sideLabel: "Государство",
+    category: "infrastructure",
+    activity: "budget_session",
+    responseLabel: "Проверить эффективность программ",
+    description: "Финансовый отдел быстро пересматривает расходы и убирает лишние траты без резкого удара по службам.",
+    impactSummary: "+устойчивость, ниже расходы",
+    tradeoff: "Социальные программы получают меньше гибкости на время проверки.",
+    actionPointCost: 1,
+    budgetCost: 300,
+    cooldownDays: 3,
+    delayDays: 0,
+    durationDays: 2,
+    effects: [
+      { kind: "subsidy_multiplier", label: "Субсидии расходуются строже", value: 0.93 },
+      { kind: "public_quality_delta", businessType: "school", label: "Публичные службы работают собраннее", value: 0.35 },
+    ],
+    sideEffects: [
+      {
+        title: "Бумажная инерция аудита",
+        description: "После проверки отделы несколько дней тратят силы на отчетность вместо гибкой реакции.",
+        delayDays: 3,
+        durationDays: 4,
+        effects: [
+          { kind: "public_quality_delta", businessType: "school", label: "Публичные службы временно устают от отчетности", value: -0.16 },
+          { kind: "daily_need_delta", need: "socialRating", label: "Жители слабее видят быстрые решения", value: -0.12 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "government_security_push",
+    title: "Усиление безопасности",
+    side: "government",
+    sideLabel: "Государство",
+    category: "safety",
+    activity: "crisis_staff",
+    responseLabel: "Усилить контроль в районах",
+    description: "Город направляет дополнительные смены на безопасность и профилактику конфликтов.",
+    impactSummary: "+безопасность, +стабильность, -бюджет",
+    tradeoff: "Жители поддержат меру не все, а бизнес сегодня остается без стимулов.",
+    actionPointCost: 1,
+    budgetCost: 1200,
+    cooldownDays: 3,
+    delayDays: 0,
+    durationDays: 2,
+    effects: [
+      { kind: "daily_need_delta", need: "physicalSafety", label: "Физическая безопасность жителей растет", value: 0.9 },
+      { kind: "daily_need_delta", need: "housingSafety", label: "Безопасность жилья и дворов немного улучшается", value: 0.7 },
+    ],
+    sideEffects: [
+      {
+        title: "Усталость от контроля",
+        description: "После усиленных смен часть жителей воспринимает контроль как давление.",
+        delayDays: 3,
+        durationDays: 4,
+        effects: [
+          { kind: "daily_need_delta", need: "socialRating", label: "Оценка власти немного проседает из-за жесткого контроля", value: -0.22 },
+          { kind: "daily_need_delta", need: "wellbeing", label: "Тревожность после усиления остается выше нормы", value: -0.12 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "government_tax_surcharge",
+    title: "Временный налоговый сбор",
+    side: "government",
+    sideLabel: "Государство",
+    category: "economy",
+    activity: "budget_session",
+    responseLabel: "Закрыть бюджетный риск",
+    description: "На короткий срок город повышает сборы, чтобы пережить напряженный день без долговой спирали.",
+    impactSummary: "+бюджет, +управляемость, -жители",
+    tradeoff: "Финансовая безопасность жителей проседает, а бизнес осторожнее нанимает.",
+    actionPointCost: 1,
+    budgetCost: 0,
+    cooldownDays: 5,
+    delayDays: 0,
+    durationDays: 2,
+    effects: [
+      { kind: "tax_delta", label: "Налоговая ставка временно выше", value: 0.025 },
+      { kind: "daily_need_delta", need: "financialSafety", label: "Финансовая безопасность жителей снижается", value: -0.6 },
+    ],
+    sideEffects: [
+      {
+        title: "Похмелье налогового сбора",
+        description: "Даже после отмены сбора семьи и бизнес несколько дней осторожнее тратят деньги.",
+        delayDays: 2,
+        durationDays: 5,
+        effects: [
+          { kind: "daily_need_delta", need: "financialSafety", label: "Финансовое доверие восстанавливается медленно", value: -0.18 },
+          { kind: "daily_business_delta", businessType: "service", label: "Сервисный спрос проседает после сбора", value: -18 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "government_emergency_reserve",
+    title: "Чрезвычайный резерв",
+    side: "government",
+    sideLabel: "Государство",
+    category: "economy",
+    activity: "budget_session",
+    responseLabel: "Заморозить часть расходов",
+    description: "Мэрия временно создает резерв и замедляет несрочные выплаты, чтобы пережить нестабильную неделю.",
+    impactSummary: "+резерв, +управляемость, -доверие",
+    tradeoff: "Жители и бизнес чувствуют паузу в поддержке не сразу, но эффект тянется дольше решения.",
+    actionPointCost: 1,
+    budgetCost: 0,
+    cooldownDays: 5,
+    delayDays: 0,
+    durationDays: 3,
+    effects: [
+      { kind: "subsidy_multiplier", label: "Несрочные субсидии временно заморожены", value: 0.88 },
+      { kind: "social_multiplier", label: "Управленческая дисциплина снижает социальный шум", value: 1.02 },
+    ],
+    sideEffects: [
+      {
+        title: "Отложенные просьбы о поддержке",
+        description: "После заморозки накопленные обращения возвращаются и бьют по ощущению защищенности.",
+        delayDays: 3,
+        durationDays: 5,
+        effects: [
+          { kind: "daily_need_delta", need: "wellbeing", label: "Накопленные просьбы ухудшают самочувствие города", value: -0.24 },
+          { kind: "daily_need_delta", need: "financialSafety", label: "Семьи чувствуют паузу в поддержке", value: -0.2 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "government_service_overtime",
+    title: "Сверхсмены служб",
+    side: "government",
+    sideLabel: "Государство",
+    category: "infrastructure",
+    activity: "crisis_staff",
+    responseLabel: "Оплатить усиленные смены",
+    description: "Городские службы берут дополнительные смены, чтобы быстрее закрыть сбои в школах, больницах и районах.",
+    impactSummary: "+качество служб, +здоровье, -бюджет",
+    tradeoff: "Персонал устает, и часть усталости проявится уже после видимого улучшения.",
+    actionPointCost: 1,
+    budgetCost: 1500,
+    cooldownDays: 4,
+    delayDays: 0,
+    durationDays: 2,
+    effects: [
+      { kind: "public_quality_delta", businessType: "school", label: "Школы и службы работают качественнее", value: 0.45 },
+      { kind: "public_quality_delta", businessType: "hospital", label: "Больницы быстрее обслуживают поток", value: 0.4 },
+      { kind: "daily_need_delta", need: "health", label: "Здоровье жителей получает быстрый импульс", value: 0.25 },
+    ],
+    sideEffects: [
+      {
+        title: "Выгорание городских служб",
+        description: "После сверхсмен качество публичных услуг несколько дней восстанавливается.",
+        delayDays: 2,
+        durationDays: 5,
+        effects: [
+          { kind: "public_quality_delta", businessType: "school", label: "Школы теряют темп после сверхсмен", value: -0.18 },
+          { kind: "public_quality_delta", businessType: "hospital", label: "Больницы работают уставшими сменами", value: -0.18 },
+          { kind: "daily_need_delta", need: "sleep", label: "Город хуже восстанавливается после перегруза", value: -0.1 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "government_data_inspection",
+    title: "Инспекция данных",
+    side: "government",
+    sideLabel: "Государство",
+    category: "infrastructure",
+    activity: "budget_session",
+    responseLabel: "Найти скрытые перекосы",
+    description: "Аналитики мэрии ищут районы и отрасли, где небольшая корректировка даст самый заметный эффект.",
+    impactSummary: "+точность политики, эффект завтра",
+    tradeoff: "Проверки раздражают часть бизнеса и создают административный хвост.",
+    actionPointCost: 1,
+    budgetCost: 600,
+    cooldownDays: 4,
+    delayDays: 1,
+    durationDays: 4,
+    effects: [
+      { kind: "social_multiplier", label: "Решения лучше попадают в проблемные зоны", value: 1.05 },
+      { kind: "public_quality_delta", businessType: "school", label: "Публичные данные улучшают качество служб", value: 0.22 },
+    ],
+    sideEffects: [
+      {
+        title: "Административный след инспекции",
+        description: "После проверок бизнес несколько дней отвлекается на документы.",
+        delayDays: 3,
+        durationDays: 4,
+        effects: [
+          { kind: "daily_business_delta", businessType: "service", label: "Сервис тратит оборот на документы", value: -18 },
+          { kind: "daily_business_delta", businessType: "food", label: "Пищевые компании осторожнее планируют поставки", value: -14 },
+        ],
+      },
+    ],
+  },
+];
+
+const DAILY_DECISION_MAP = new Map(DAILY_DECISION_CATALOG.map((decision) => [decision.id, decision]));
+
+const DEFAULT_GAME_OPTIONS: NewGameOptions = {
+  scenarioType: "balanced",
+  goalType: "balanced",
+  dayLimit: 30,
+};
+
+function normalizeScenarioType(value: unknown): ScenarioType {
+  return value === "crisis" || value === "growth" || value === "stability" ? value : "balanced";
+}
+
+function normalizeGoalType(value: unknown): GoalType {
+  if (value === "crisis_recovery" || value === "economic_growth" || value === "social_stability") return value;
+  return "balanced";
+}
+
+function normalizeGameStatus(value: unknown): GameStatus {
+  return value === "victory" || value === "defeat" ? value : "active";
+}
+
+function clampScore(value: number): number {
+  return Math.max(0, Math.min(100, value));
 }
 
 const MALE_NAMES = [
@@ -495,6 +1300,13 @@ class SimulationEngine {
     running: false,
     gameHour: 0,
     gameDay: 1,
+    scenarioType: DEFAULT_GAME_OPTIONS.scenarioType,
+    goalType: DEFAULT_GAME_OPTIONS.goalType,
+    dayLimit: DEFAULT_GAME_OPTIONS.dayLimit,
+    gameStatus: "active",
+    gameOutcomeReason: null,
+    actionPointsRemaining: DAILY_ACTION_POINTS_MAX,
+    actionPointsMax: DAILY_ACTION_POINTS_MAX,
     governmentBudget: 10000,
     totalTaxCollected: 0,
     totalSubsidiesPaid: 0,
@@ -516,6 +1328,12 @@ class SimulationEngine {
   private activeEvents: WorldEvent[] = [];
   private eventLog: EventLogEntry[] = [];
   private lastEventDay = 0; // last day a world event was triggered
+  private dailyDecrees: DailyDecreeRecord[] = [];
+  private residentRequests: ResidentRequestRecord[] = [];
+  private residentRequestSeq = 1;
+  private residentRequestReputationDelta = 0;
+  private factionDemands: FactionDemandRecord[] = [];
+  private factionDemandSeq = 1;
 
   async initialize(): Promise<void> {
     logger.info("Initializing simulation engine...");
@@ -526,6 +1344,7 @@ class SimulationEngine {
     await this.loadGoods();
     await this.loadRelations();
     await this.loadAgentStatHistory();
+    await this.loadDailyDecrees();
 
     if (this.agents.size === 0) {
       logger.info("No agents found, generating initial population...");
@@ -588,7 +1407,14 @@ class SimulationEngine {
         gameHour: row.gameHour,
         gameDay: row.gameDay,
         // Floor at 0 — negative budgets from old buggy code are reset on restart
-        governmentBudget: Math.max(0, row.governmentBudget),
+        scenarioType: normalizeScenarioType(row.scenarioType),
+        goalType: normalizeGoalType(row.goalType),
+        dayLimit: row.dayLimit ?? DEFAULT_GAME_OPTIONS.dayLimit,
+        gameStatus: normalizeGameStatus(row.gameStatus),
+        gameOutcomeReason: row.gameOutcomeReason ?? null,
+        actionPointsRemaining: Math.min(row.actionPointsRemaining ?? DAILY_ACTION_POINTS_MAX, DAILY_ACTION_POINTS_MAX),
+        actionPointsMax: DAILY_ACTION_POINTS_MAX,
+        governmentBudget: row.governmentBudget,
         totalTaxCollected: row.totalTaxCollected ?? 0,
         totalSubsidiesPaid: row.totalSubsidiesPaid ?? 0,
         totalPensionPaid: row.totalPensionPaid ?? 0,
@@ -600,6 +1426,13 @@ class SimulationEngine {
         running: false,
         gameHour: 0,
         gameDay: 1,
+        scenarioType: DEFAULT_GAME_OPTIONS.scenarioType,
+        goalType: DEFAULT_GAME_OPTIONS.goalType,
+        dayLimit: DEFAULT_GAME_OPTIONS.dayLimit,
+        gameStatus: "active",
+        gameOutcomeReason: null,
+        actionPointsRemaining: DAILY_ACTION_POINTS_MAX,
+        actionPointsMax: DAILY_ACTION_POINTS_MAX,
         governmentBudget: 10000,
         totalTaxCollected: 0,
         totalSubsidiesPaid: 0,
@@ -612,7 +1445,7 @@ class SimulationEngine {
   private async loadAgents(): Promise<void> {
     const agentRows = await db.select().from(agentsTable).limit(5000);
     const needsRows = await db.select().from(needsTable);
-    const needsMap = new Map<number, { hunger: number; comfort: number; social: number; health: number; sleep: number; education: number; entertainment: number; faith: number; housingSafety: number; financialSafety: number; physicalSafety: number; socialRating: number; id: number }>();
+    const needsMap = new Map<number, { hunger: number; comfort: number; social: number; health: number; sleep: number; education: number; entertainment: number; faith: number; housingSafety: number; financialSafety: number; physicalSafety: number; socialRating: number; wellbeing: number; id: number }>();
     for (const n of needsRows) {
       needsMap.set(n.agentId, {
         hunger: n.hunger, comfort: n.comfort, social: n.social,
@@ -622,6 +1455,7 @@ class SimulationEngine {
         financialSafety: n.financialSafety ?? 80,
         physicalSafety: n.physicalSafety ?? 80,
         socialRating: n.socialRating ?? 50,
+        wellbeing: n.wellbeing ?? 70,
         id: n.id,
       });
     }
@@ -660,17 +1494,24 @@ class SimulationEngine {
 
   private async loadAgentStatHistory(): Promise<void> {
     this.agentStatHistory.clear();
-    const rows = await db.execute(sql`
+    const rows = sqlite.prepare(`
       SELECT agent_id, tick, money, mood, age, socialization
       FROM (
         SELECT agent_id, tick, money, mood, age, socialization,
                ROW_NUMBER() OVER (PARTITION BY agent_id ORDER BY tick DESC) AS rn
         FROM agent_stat_history
-      ) ranked
-      WHERE rn <= ${AGENT_STAT_HISTORY_MAX}
+      )
+      WHERE rn <= ?
       ORDER BY agent_id, tick ASC
-    `);
-    for (const row of rows.rows) {
+    `).all(AGENT_STAT_HISTORY_MAX) as Array<{
+      agent_id: number;
+      tick: number;
+      money: number;
+      mood: number;
+      age: number;
+      socialization: number;
+    }>;
+    for (const row of rows) {
       const agentId = Number(row.agent_id);
       const snapshot: AgentStatSnapshot = {
         tick: Number(row.tick),
@@ -686,16 +1527,53 @@ class SimulationEngine {
     logger.info({ agentCount: this.agentStatHistory.size }, "Loaded agent stat history from DB");
 
     // Очистка старых записей — запускается в фоне, не блокирует старт
-    void db.execute(sql`
-      DELETE FROM agent_stat_history
-      WHERE id NOT IN (
-        SELECT id FROM (
-          SELECT id, ROW_NUMBER() OVER (PARTITION BY agent_id ORDER BY tick DESC) AS rn
-          FROM agent_stat_history
-        ) ranked
-        WHERE rn <= ${AGENT_STAT_HISTORY_MAX}
-      )
-    `).catch(err => logger.warn({ err }, "Background agent_stat_history cleanup failed"));
+    try {
+      sqlite.prepare(`
+        DELETE FROM agent_stat_history
+        WHERE id NOT IN (
+          SELECT id FROM (
+            SELECT id, ROW_NUMBER() OVER (PARTITION BY agent_id ORDER BY tick DESC) AS rn
+            FROM agent_stat_history
+          )
+          WHERE rn <= ?
+        )
+      `).run(AGENT_STAT_HISTORY_MAX);
+    } catch (err) {
+      logger.warn({ err }, "Background agent_stat_history cleanup failed");
+    }
+  }
+
+  private async loadDailyDecrees(): Promise<void> {
+    const rows = await db.select().from(dailyDecreesTable);
+    this.dailyDecrees = rows.map(row => ({
+      id: row.id,
+      decisionId: row.decisionId,
+      title: row.title,
+      description: row.description,
+      status: this.normalizeDecreeStatus(row.status),
+      issuedDay: row.issuedDay,
+      startDay: row.startDay,
+      endDay: row.endDay,
+      actionPointCost: row.actionPointCost,
+      budgetCost: row.budgetCost,
+      cooldownDays: row.cooldownDays,
+      effects: this.parseDecisionEffects(row.effectsJson),
+    }));
+    this.refreshDailyDecreeStatuses();
+  }
+
+  private parseDecisionEffects(raw: string): DecisionEffect[] {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed as DecisionEffect[] : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private normalizeDecreeStatus(value: string): DailyDecreeStatus {
+    if (value === "active" || value === "expired") return value;
+    return "pending";
   }
 
   private async loadBusinesses(): Promise<void> {
@@ -1177,6 +2055,7 @@ class SimulationEngine {
 
   async start(): Promise<void> {
     if (this.state.running) return;
+    if (this.state.gameStatus !== "active") return;
     this.state.running = true;
     await this.persistState();
     this.startTimer();
@@ -1201,24 +2080,26 @@ class SimulationEngine {
     }
   }
 
-  async reset(): Promise<void> {
+  async reset(options: Partial<NewGameOptions> = {}): Promise<void> {
+    const gameOptions = this.normalizeNewGameOptions(options);
     await this.stop();
     await this.waitForTickComplete();
-    logger.info("Resetting simulation...");
+    logger.info({ gameOptions }, "Resetting simulation...");
 
-    // Use TRUNCATE for fast bulk-delete — much faster than DELETE on large tables
-    // CASCADE handles FK dependencies automatically; RESTART IDENTITY resets serial PKs
-    await db.execute(sql`
-      TRUNCATE TABLE
-        stats_history,
-        agent_stat_history,
-        relations,
-        needs,
-        agents,
-        goods,
-        businesses
-      RESTART IDENTITY CASCADE
-    `);
+    // SQLite reset: delete dependent rows first and clear autoincrement counters.
+    sqlite.transaction(() => {
+      sqlite.prepare("DELETE FROM stats_history").run();
+      sqlite.prepare("DELETE FROM agent_stat_history").run();
+      sqlite.prepare("DELETE FROM daily_decrees").run();
+      sqlite.prepare("DELETE FROM relations").run();
+      sqlite.prepare("DELETE FROM needs").run();
+      sqlite.prepare("DELETE FROM agents").run();
+      sqlite.prepare("DELETE FROM goods").run();
+      sqlite.prepare("DELETE FROM businesses").run();
+      sqlite
+        .prepare("DELETE FROM sqlite_sequence WHERE name IN ('stats_history','agent_stat_history','daily_decrees','relations','needs','agents','goods','businesses')")
+        .run();
+    })();
 
     this.agents.clear();
     this.businesses.clear();
@@ -1227,13 +2108,26 @@ class SimulationEngine {
     this.dirtyRelations.clear();
     this.persistedRelations.clear();
     this.agentStatHistory.clear();
+    this.dailyDecrees = [];
+    this.residentRequests = [];
+    this.residentRequestSeq = 1;
+    this.residentRequestReputationDelta = 0;
+    this.factionDemands = [];
+    this.factionDemandSeq = 1;
 
     this.state = {
       tick: 0,
       running: false,
       gameHour: 0,
       gameDay: 1,
-      governmentBudget: 200000,
+      scenarioType: gameOptions.scenarioType,
+      goalType: gameOptions.goalType,
+      dayLimit: gameOptions.dayLimit,
+      gameStatus: "active",
+      gameOutcomeReason: null,
+      actionPointsRemaining: DAILY_ACTION_POINTS_MAX,
+      actionPointsMax: DAILY_ACTION_POINTS_MAX,
+      governmentBudget: this.getScenarioBudget(gameOptions.scenarioType),
       totalTaxCollected: 0,
       totalSubsidiesPaid: 0,
       totalPensionPaid: 0,
@@ -1243,6 +2137,33 @@ class SimulationEngine {
     await this.generatePopulation();
     await this.start();
     logger.info("Simulation reset complete");
+  }
+
+  async newGame(options: Partial<NewGameOptions>): Promise<void> {
+    await this.reset(options);
+  }
+
+  private normalizeNewGameOptions(options: Partial<NewGameOptions>): NewGameOptions {
+    const dayLimit = Math.round(Number(options.dayLimit ?? DEFAULT_GAME_OPTIONS.dayLimit));
+    return {
+      scenarioType: normalizeScenarioType(options.scenarioType),
+      goalType: normalizeGoalType(options.goalType),
+      dayLimit: Math.max(7, Math.min(120, Number.isFinite(dayLimit) ? dayLimit : DEFAULT_GAME_OPTIONS.dayLimit)),
+    };
+  }
+
+  private getScenarioBudget(scenarioType: ScenarioType): number {
+    switch (scenarioType) {
+      case "crisis":
+        return 25000;
+      case "growth":
+        return 260000;
+      case "stability":
+        return 140000;
+      case "balanced":
+      default:
+        return 200000;
+    }
   }
 
   private startTimer(): void {
@@ -1279,7 +2200,27 @@ class SimulationEngine {
     this.state.gameHour = (this.state.gameHour + 1) % 24;
     if (this.state.gameHour === 0) this.state.gameDay++;
 
-    const { taxRate, needDecayRate, subsidyAmount, baseSalary, socialInteractionStrength, pensionRate } = this.config;
+    const isNewDay = this.state.gameHour === 0;
+    if (isNewDay) {
+      this.state.actionPointsMax = DAILY_ACTION_POINTS_MAX;
+      this.state.actionPointsRemaining = this.state.actionPointsMax;
+      this.resolveExpiredFactionDemands();
+    }
+    this.refreshDailyDecreeStatuses();
+    if (isNewDay) {
+      this.applyDailyDecisionEffects();
+      this.generateFactionDemands();
+    }
+    this.residentRequestReputationDelta = clamp(this.residentRequestReputationDelta * 0.995, -5, 5);
+    this.generateResidentRequests();
+
+    const decisionModifiers = this.getDecisionModifiers();
+    const taxRate = clamp(this.config.taxRate + decisionModifiers.taxDelta, 0, 0.6);
+    const needDecayRate = this.config.needDecayRate * decisionModifiers.needDecayMultiplier;
+    const subsidyAmount = this.config.subsidyAmount * decisionModifiers.subsidyMultiplier;
+    const baseSalary = this.config.baseSalary;
+    const socialInteractionStrength = this.config.socialInteractionStrength * decisionModifiers.socialMultiplier;
+    const pensionRate = this.config.pensionRate;
 
     // Динамический расчёт maxEmployees для частного сектора каждый тик.
     // Правило: бизнес может нанимать, пока общий ФОТ не превышает 60% баланса.
@@ -1308,7 +2249,6 @@ class SimulationEngine {
       // Public sector: зафиксировано таблицей штатного расписания (не пересчитывается)
     }
 
-    const isNewDay = this.state.gameHour === 0;
     const dailyDeaths: number[] = [];
 
     // ── Индекс экономического благосостояния ─────────────────────────────
@@ -1447,7 +2387,7 @@ class SimulationEngine {
 
     // Предварительно строим карту «бизнес → грейд → кол-во сотрудников».
     // Используется в vacancy-check при повышениях: O(N) один раз вместо O(N²).
-    const bizGradeCount = new Map<string, Map<number, number>>();
+    const bizGradeCount = new Map<number, Map<number, number>>();
     for (const agent of this.agents.values()) {
       if (!agent.employerId || agent.isRetired) continue;
       if (!bizGradeCount.has(agent.employerId)) bizGradeCount.set(agent.employerId, new Map());
@@ -1577,7 +2517,7 @@ class SimulationEngine {
 
         // Проверка вакансии по штатному расписанию:
         // повышение разрешено только если на целевом грейде есть свободное место.
-        const hasVacancy = (bizId: string, bizType: string, toGrade: number): boolean => {
+        const hasVacancy = (bizId: number, bizType: string, toGrade: number): boolean => {
           const slots = STAFFING_TABLE[bizType]?.[toGrade] ?? 0;
           if (slots <= 0) return false;
           const occupied = bizGradeCount.get(bizId)?.get(toGrade) ?? 0;
@@ -1585,7 +2525,7 @@ class SimulationEngine {
         };
 
         // Обновляем карту грейдов: агент переходит с fromGrade на toGrade в данном бизнесе.
-        const recordPromotion = (bizId: string, fromGrade: number, toGrade: number): void => {
+        const recordPromotion = (bizId: number, fromGrade: number, toGrade: number): void => {
           if (!bizGradeCount.has(bizId)) bizGradeCount.set(bizId, new Map());
           const m = bizGradeCount.get(bizId)!;
           m.set(fromGrade, Math.max(0, (m.get(fromGrade) ?? 0) - 1));
@@ -2652,6 +3592,7 @@ class SimulationEngine {
     }
 
     this.syncCounter++;
+    this.applyGoalEvaluation(gdp);
     if (this.syncCounter >= 1) {
       this.syncCounter = 0;
       const dbStart = Date.now();
@@ -3564,85 +4505,7 @@ class SimulationEngine {
     const goodsArray = Array.from(this.goods.values());
     const bizArray = Array.from(this.businesses.values());
 
-    // --- Bulk update agents in one SQL query ---
-    const agentUpdateP = agentArray.length > 0
-      ? db.execute(sql`
-          UPDATE agents AS t SET
-            age             = v.age::int,
-            mood            = v.mood::float8,
-            money           = v.money::float8,
-            current_action  = v.current_action::text,
-            employer_id     = v.employer_id::int,
-            is_retired      = v.is_retired::boolean,
-            job_history     = v.job_history::text,
-            career_level    = v.career_level::int,
-            ambition        = v.ambition::float8,
-            strength        = v.strength::float8,
-            intelligence    = v.intelligence::float8
-          FROM (VALUES ${sql.join(
-            agentArray.map(a => sql`(${a.id},${a.age},${a.mood},${a.money},${a.currentAction},${a.employerId ?? null},${a.isRetired},${JSON.stringify(a.jobHistory.slice(-50))},${a.careerLevel},${a.ambition},${a.strength ?? 50},${a.intelligence ?? 50})`),
-            sql.raw(',')
-          )}) AS v(id, age, mood, money, current_action, employer_id, is_retired, job_history, career_level, ambition, strength, intelligence)
-          WHERE t.id = v.id::int
-        `)
-      : Promise.resolve();
-
-    // --- Bulk update needs in one SQL query ---
-    const needsUpdateP = agentArray.length > 0
-      ? db.execute(sql`
-          UPDATE needs AS t SET
-            hunger           = v.hunger::float8,
-            comfort          = v.comfort::float8,
-            social           = v.social::float8,
-            health           = v.health::float8,
-            sleep            = v.sleep::float8,
-            education        = v.education::float8,
-            entertainment    = v.entertainment::float8,
-            faith            = v.faith::float8,
-            housing_safety   = v.housing_safety::float8,
-            financial_safety = v.financial_safety::float8,
-            physical_safety  = v.physical_safety::float8,
-            social_rating    = v.social_rating::float8,
-            wellbeing        = v.wellbeing::float8
-          FROM (VALUES ${sql.join(
-            agentArray.map(a => sql`(${a.id},${a.needs.hunger},${a.needs.comfort},${a.needs.social},${a.needs.health},${a.needs.sleep},${a.needs.education},${a.needs.entertainment},${a.needs.faith},${a.needs.housingSafety},${a.needs.financialSafety},${a.needs.physicalSafety},${a.needs.socialRating},${a.needs.wellbeing})`),
-            sql.raw(',')
-          )}) AS v(agent_id, hunger, comfort, social, health, sleep, education, entertainment, faith, housing_safety, financial_safety, physical_safety, social_rating, wellbeing)
-          WHERE t.agent_id = v.agent_id::int
-        `)
-      : Promise.resolve();
-
-    // --- Bulk update goods in one SQL query ---
-    const goodsUpdateP = goodsArray.length > 0
-      ? db.execute(sql`
-          UPDATE goods AS t SET
-            current_price = v.current_price::float8,
-            demand        = v.demand::float8,
-            supply        = v.supply::float8,
-            quality       = v.quality::float8
-          FROM (VALUES ${sql.join(
-            goodsArray.map(g => sql`(${g.id},${g.currentPrice},${g.demand},${g.supply},${g.quality})`),
-            sql.raw(',')
-          )}) AS v(id, current_price, demand, supply, quality)
-          WHERE t.id = v.id::int
-        `)
-      : Promise.resolve();
-
-    // --- Bulk update businesses in one SQL query ---
-    const bizUpdateP = bizArray.length > 0
-      ? db.execute(sql`
-          UPDATE businesses AS t SET
-            balance           = v.balance::float8,
-            productivity_level = v.productivity_level::int
-          FROM (VALUES ${sql.join(
-            bizArray.map(b => sql`(${b.id},${b.balance},${b.productivityLevel ?? 0})`),
-            sql.raw(',')
-          )}) AS v(id, balance, productivity_level)
-          WHERE t.id = v.id::int
-        `)
-      : Promise.resolve();
-
-    // --- Bulk sync dirty relations (split new vs existing) ---
+    // --- SQLite sync ---
     const dirtyKeys = Array.from(this.dirtyRelations).slice(0, 500);
     const newRelRows: { agentIdA: number; agentIdB: number; friendshipLevel: number }[] = [];
     const existingRelRows: { agentIdA: number; agentIdB: number; friendshipLevel: number }[] = [];
@@ -3661,27 +4524,112 @@ class SimulationEngine {
       }
       this.dirtyRelations.delete(key);
     }
-    const relNewP = newRelRows.length > 0
-      ? db.insert(relationsTable).values(newRelRows)
-      : Promise.resolve();
-    const relUpdateP = existingRelRows.length > 0
-      ? db.execute(sql`
-          UPDATE relations AS t SET friendship_level = v.lvl::float8
-          FROM (VALUES ${sql.join(
-            existingRelRows.map(r => sql`(${r.agentIdA},${r.agentIdB},${r.friendshipLevel})`),
-            sql.raw(',')
-          )}) AS v(a, b, lvl)
-          WHERE t.agent_id_a = v.a::int AND t.agent_id_b = v.b::int
-        `)
-      : Promise.resolve();
-    const relUpsertP = Promise.all([relNewP, relUpdateP]);
+    sqlite.transaction(() => {
+      const updateAgent = sqlite.prepare(`
+        UPDATE agents SET
+          age = ?,
+          mood = ?,
+          money = ?,
+          current_action = ?,
+          employer_id = ?,
+          is_retired = ?,
+          job_history = ?,
+          career_level = ?,
+          ambition = ?,
+          strength = ?,
+          intelligence = ?
+        WHERE id = ?
+      `);
+      const updateNeeds = sqlite.prepare(`
+        UPDATE needs SET
+          hunger = ?,
+          comfort = ?,
+          social = ?,
+          health = ?,
+          sleep = ?,
+          education = ?,
+          entertainment = ?,
+          faith = ?,
+          housing_safety = ?,
+          financial_safety = ?,
+          physical_safety = ?,
+          social_rating = ?,
+          wellbeing = ?
+        WHERE agent_id = ?
+      `);
+      const updateGood = sqlite.prepare(`
+        UPDATE goods SET
+          current_price = ?,
+          demand = ?,
+          supply = ?,
+          quality = ?
+        WHERE id = ?
+      `);
+      const updateBusiness = sqlite.prepare(`
+        UPDATE businesses SET
+          balance = ?,
+          productivity_level = ?
+        WHERE id = ?
+      `);
+      const insertRelation = sqlite.prepare(`
+        INSERT OR IGNORE INTO relations (agent_id_a, agent_id_b, friendship_level)
+        VALUES (?, ?, ?)
+      `);
+      const updateRelation = sqlite.prepare(`
+        UPDATE relations
+        SET friendship_level = ?
+        WHERE agent_id_a = ? AND agent_id_b = ?
+      `);
 
-    // Run table updates sequentially (agents first, then needs) to prevent
-    // row-level lock contention / deadlocks from concurrent large UPDATEs.
-    // Small tables (goods, businesses, relations) run in parallel after agents.
-    await agentUpdateP;
-    await needsUpdateP;
-    await Promise.all([goodsUpdateP, bizUpdateP, relUpsertP]);
+      for (const a of agentArray) {
+        updateAgent.run(
+          a.age,
+          a.mood,
+          a.money,
+          a.currentAction,
+          a.employerId ?? null,
+          a.isRetired ? 1 : 0,
+          JSON.stringify(a.jobHistory.slice(-50)),
+          a.careerLevel,
+          a.ambition,
+          a.strength ?? 50,
+          a.intelligence ?? 50,
+          a.id,
+        );
+        updateNeeds.run(
+          a.needs.hunger,
+          a.needs.comfort,
+          a.needs.social,
+          a.needs.health,
+          a.needs.sleep,
+          a.needs.education,
+          a.needs.entertainment,
+          a.needs.faith,
+          a.needs.housingSafety,
+          a.needs.financialSafety,
+          a.needs.physicalSafety,
+          a.needs.socialRating,
+          a.needs.wellbeing,
+          a.id,
+        );
+      }
+
+      for (const g of goodsArray) {
+        updateGood.run(g.currentPrice, g.demand, g.supply, g.quality, g.id);
+      }
+
+      for (const b of bizArray) {
+        updateBusiness.run(b.balance, b.productivityLevel ?? 0, b.id);
+      }
+
+      for (const r of newRelRows) {
+        insertRelation.run(r.agentIdA, r.agentIdB, r.friendshipLevel);
+      }
+
+      for (const r of existingRelRows) {
+        updateRelation.run(r.friendshipLevel, r.agentIdA, r.agentIdB);
+      }
+    })();
 
     // Stats history (single row insert)
     const { avgMood, avgWealth, unemploymentRate } = this.getAggregateStats();
@@ -3720,18 +4668,23 @@ class SimulationEngine {
     }
     if (dbRows.length > 0) {
       await db.insert(agentStatHistoryTable).values(dbRows);
-      const agentIds = dbRows.map(r => r.agentId);
-      void db.execute(sql`
+      const trimAgentHistory = sqlite.prepare(`
         DELETE FROM agent_stat_history
-        WHERE id IN (
-          SELECT id FROM (
-            SELECT id, ROW_NUMBER() OVER (PARTITION BY agent_id ORDER BY tick DESC) AS rn
+        WHERE agent_id = ?
+          AND id NOT IN (
+            SELECT id
             FROM agent_stat_history
-            WHERE agent_id = ANY(${agentIds}::int[])
-          ) ranked
-          WHERE rn > ${AGENT_STAT_HISTORY_MAX}
-        )
-      `).catch(() => {});
+            WHERE agent_id = ?
+            ORDER BY tick DESC
+            LIMIT ?
+          )
+      `);
+      const agentIds = [...new Set(dbRows.map(r => r.agentId))];
+      sqlite.transaction(() => {
+        for (const agentId of agentIds) {
+          trimAgentHistory.run(agentId, agentId, AGENT_STAT_HISTORY_MAX);
+        }
+      })();
     }
   }
 
@@ -3743,6 +4696,13 @@ class SimulationEngine {
         running: this.state.running,
         gameHour: this.state.gameHour,
         gameDay: this.state.gameDay,
+        scenarioType: this.state.scenarioType,
+        goalType: this.state.goalType,
+        dayLimit: this.state.dayLimit,
+        gameStatus: this.state.gameStatus,
+        gameOutcomeReason: this.state.gameOutcomeReason,
+        actionPointsRemaining: this.state.actionPointsRemaining,
+        actionPointsMax: this.state.actionPointsMax,
         governmentBudget: this.state.governmentBudget,
         totalTaxCollected: this.state.totalTaxCollected,
         totalSubsidiesPaid: this.state.totalSubsidiesPaid,
@@ -3767,14 +4727,998 @@ class SimulationEngine {
     return { avgMood, avgWealth, unemploymentRate };
   }
 
+  private getAverageHealth(): number {
+    const agents = Array.from(this.agents.values());
+    if (agents.length === 0) return 0;
+    return agents.reduce((sum, agent) => sum + agent.needs.health, 0) / agents.length;
+  }
+
+  private getProfitableBusinessPercent(): number {
+    const businesses = Array.from(this.businesses.values());
+    if (businesses.length === 0) return 0;
+    return (businesses.filter(b => b.balance >= 0).length / businesses.length) * 100;
+  }
+
+  private evaluateGoal(gdpOverride?: number): GoalEvaluation {
+    const { avgMood, unemploymentRate } = this.getAggregateStats();
+    const avgHealth = this.getAverageHealth();
+    const profitablePercent = this.getProfitableBusinessPercent();
+    const gdp = gdpOverride ?? Array.from(this.businesses.values()).reduce((s, b) => s + b.balance, 0);
+
+    const residentsScore = clampScore(avgMood * 0.5 + (100 - unemploymentRate) * 0.3 + avgHealth * 0.2 + this.residentRequestReputationDelta);
+    const businessScore = clampScore(profitablePercent * 0.65 + Math.min(35, Math.max(0, gdp / 10000)));
+    const governmentScore = clampScore(Math.min(100, Math.max(0, this.state.governmentBudget / 2500)) * 0.7 + 30);
+
+    let progress = 0;
+    let victory = false;
+
+    switch (this.state.goalType) {
+      case "crisis_recovery":
+        progress = (
+          Math.min(1, this.state.governmentBudget / 100000) +
+          Math.min(1, Math.max(0, (25 - unemploymentRate) / 15)) +
+          Math.min(1, avgMood / 60)
+        ) / 3;
+        victory = this.state.governmentBudget >= 100000 && unemploymentRate <= 10 && avgMood >= 60;
+        break;
+      case "economic_growth":
+        progress = (
+          Math.min(1, gdp / 420000) +
+          Math.min(1, profitablePercent / 75) +
+          Math.min(1, Math.max(0, (18 - unemploymentRate) / 12))
+        ) / 3;
+        victory = gdp >= 420000 && profitablePercent >= 75 && unemploymentRate <= 8;
+        break;
+      case "social_stability":
+        progress = (
+          Math.min(1, residentsScore / 75) +
+          Math.min(1, avgHealth / 75) +
+          Math.min(1, Math.max(0, this.agents.size / 1000))
+        ) / 3;
+        victory = residentsScore >= 75 && avgHealth >= 75 && this.agents.size >= 1000;
+        break;
+      case "balanced":
+      default:
+        progress = (
+          Math.min(1, residentsScore / 70) +
+          Math.min(1, businessScore / 70) +
+          Math.min(1, governmentScore / 70)
+        ) / 3;
+        victory = residentsScore >= 70 && businessScore >= 70 && governmentScore >= 70;
+        break;
+    }
+
+    if (victory) {
+      return {
+        status: "victory",
+        reason: this.getVictoryReason(),
+        progress: Math.round(progress * 100),
+        residentsScore: Math.round(residentsScore),
+        businessScore: Math.round(businessScore),
+        governmentScore: Math.round(governmentScore),
+      };
+    }
+
+    const timeExpired = this.state.gameDay > this.state.dayLimit;
+    if (timeExpired) {
+      return {
+        status: "defeat",
+        reason: "Срок партии истёк: цель сценария не выполнена.",
+        progress: Math.round(progress * 100),
+        residentsScore: Math.round(residentsScore),
+        businessScore: Math.round(businessScore),
+        governmentScore: Math.round(governmentScore),
+      };
+    }
+
+    if (residentsScore < 20) {
+      return {
+        status: "defeat",
+        reason: "Город сорвался в массовые протесты жителей.",
+        progress: Math.round(progress * 100),
+        residentsScore: Math.round(residentsScore),
+        businessScore: Math.round(businessScore),
+        governmentScore: Math.round(governmentScore),
+      };
+    }
+
+    return {
+      status: "active",
+      reason: null,
+      progress: Math.round(progress * 100),
+      residentsScore: Math.round(residentsScore),
+      businessScore: Math.round(businessScore),
+      governmentScore: Math.round(governmentScore),
+    };
+  }
+
+  private getVictoryReason(): string {
+    switch (this.state.goalType) {
+      case "crisis_recovery":
+        return "Кризис преодолён: бюджет, занятость и настроение вернулись в устойчивую зону.";
+      case "economic_growth":
+        return "Экономический рывок состоялся: бизнесы прибыльны, ВВП вырос, безработица низкая.";
+      case "social_stability":
+        return "Город стабилен: жители здоровы, население удержано, доверие высокое.";
+      case "balanced":
+      default:
+        return "Баланс интересов найден: жители, бизнес и власть поддерживают курс мэра.";
+    }
+  }
+
+  private applyGoalEvaluation(gdpOverride?: number): GoalEvaluation {
+    const evaluation = this.evaluateGoal(gdpOverride);
+    if (this.state.gameStatus === "active" && evaluation.status !== "active") {
+      this.state.gameStatus = evaluation.status;
+      this.state.gameOutcomeReason = evaluation.reason;
+      this.state.running = false;
+      if (this.timer !== null) {
+        clearTimeout(this.timer);
+        this.timer = null;
+      }
+      logger.info({ status: evaluation.status, reason: evaluation.reason }, "Game finished");
+    }
+    return evaluation;
+  }
+
+  private refreshDailyDecreeStatuses(): void {
+    const updateStatus = sqlite.prepare("UPDATE daily_decrees SET status = ? WHERE id = ?");
+    let changed = false;
+    for (const decree of this.dailyDecrees) {
+      const nextStatus: DailyDecreeStatus =
+        this.state.gameDay < decree.startDay
+          ? "pending"
+          : this.state.gameDay <= decree.endDay
+            ? "active"
+            : "expired";
+      if (decree.status !== nextStatus) {
+        decree.status = nextStatus;
+        updateStatus.run(nextStatus, decree.id);
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.dailyDecrees.sort((a, b) => b.issuedDay - a.issuedDay || b.id - a.id);
+    }
+  }
+
+  private getActiveDailyDecrees(): DailyDecreeRecord[] {
+    this.refreshDailyDecreeStatuses();
+    return this.dailyDecrees.filter(decree => decree.status === "active");
+  }
+
+  private getDecisionModifiers(): DecisionModifiers {
+    const modifiers: DecisionModifiers = {
+      needDecayMultiplier: 1,
+      socialMultiplier: 1,
+      taxDelta: 0,
+      subsidyMultiplier: 1,
+    };
+    for (const decree of this.getActiveDailyDecrees()) {
+      for (const effect of decree.effects) {
+        if (effect.kind === "need_decay_multiplier") modifiers.needDecayMultiplier *= effect.value;
+        else if (effect.kind === "social_multiplier") modifiers.socialMultiplier *= effect.value;
+        else if (effect.kind === "tax_delta") modifiers.taxDelta += effect.value;
+        else if (effect.kind === "subsidy_multiplier") modifiers.subsidyMultiplier *= effect.value;
+      }
+    }
+    return modifiers;
+  }
+
+  private applyDailyDecisionEffects(decrees = this.getActiveDailyDecrees()): void {
+    for (const decree of decrees) {
+      for (const effect of decree.effects) {
+        this.applyDecisionEffect(effect);
+      }
+    }
+  }
+
+  private applyDecisionEffect(effect: DecisionEffect): void {
+    if (effect.kind === "daily_need_delta" && effect.need) {
+      for (const agent of this.agents.values()) {
+        agent.needs[effect.need] = clamp(agent.needs[effect.need] + effect.value);
+      }
+    } else if (effect.kind === "daily_business_delta" && effect.businessType) {
+      for (const business of this.businesses.values()) {
+        if (business.type === effect.businessType) {
+          business.balance += effect.value;
+        }
+      }
+    } else if (effect.kind === "public_quality_delta" && effect.businessType) {
+      for (const good of this.goods.values()) {
+        const business = good.businessId != null ? this.businesses.get(good.businessId) : null;
+        if (business?.type === effect.businessType) {
+          good.quality = clamp(good.quality + effect.value);
+        }
+      }
+    } else if (effect.kind === "food_supply_delta") {
+      for (const good of this.goods.values()) {
+        const business = good.businessId != null ? this.businesses.get(good.businessId) : null;
+        if (business?.type === "food" || business?.type === "farm") {
+          good.supply = clamp(good.supply + effect.value, 0, 200);
+        }
+      }
+    }
+  }
+
+  private applyFactionOutcome(demand: FactionDemandRecord, outcome: FactionDemandOutcome, status: Exclude<FactionDemandStatus, "active">): void {
+    this.state.governmentBudget = Math.max(0, this.state.governmentBudget + outcome.budgetDelta);
+    for (const effect of outcome.effects) {
+      this.applyDecisionEffect(effect);
+    }
+    demand.status = status;
+    demand.resolvedDay = this.state.gameDay;
+    demand.pressure = clamp(demand.pressure + outcome.pressureDelta, 0, 100);
+    demand.resolutionLabel = outcome.label;
+  }
+
+  private getAverageNeed(need: keyof AgentState["needs"]): number {
+    if (this.agents.size === 0) return 0;
+    let sum = 0;
+    for (const agent of this.agents.values()) {
+      sum += agent.needs[need];
+    }
+    return sum / this.agents.size;
+  }
+
+  private getFoodMarketRatio(): number {
+    let demand = 0;
+    let supply = 0;
+    for (const good of this.goods.values()) {
+      const business = good.businessId != null ? this.businesses.get(good.businessId) : null;
+      if (business?.type === "food" || business?.type === "farm") {
+        demand += good.demand;
+        supply += good.supply;
+      }
+    }
+    return demand > 0 ? supply / demand : 1;
+  }
+
+  private buildFactionReward(side: DailyDecisionSide): FactionDemandOutcome {
+    if (side === "residents") {
+      return {
+        label: "Требование жителей закрыто: доверие и благополучие растут.",
+        budgetDelta: 0,
+        pressureDelta: -28,
+        effects: [
+          { kind: "daily_need_delta", need: "socialRating", label: "Жители видят, что мэрия реагирует на давление", value: 1.4 },
+          { kind: "daily_need_delta", need: "wellbeing", label: "Бытовое напряжение немного снижается", value: 1.0 },
+        ],
+      };
+    }
+    if (side === "business") {
+      return {
+        label: "Бизнес получил ответ и вернул часть доверия инвестициями.",
+        budgetDelta: 700,
+        pressureDelta: -24,
+        effects: [
+          { kind: "daily_business_delta", businessType: "service", label: "Сервисные компании активнее держат оборот", value: 120 },
+          { kind: "daily_business_delta", businessType: "food", label: "Торговые компании быстрее пополняют оборот", value: 90 },
+        ],
+      };
+    }
+    return {
+      label: "Госаппарат получил ясное поручение: резерв и управляемость укреплены.",
+      budgetDelta: 1000,
+      pressureDelta: -22,
+      effects: [
+        { kind: "daily_need_delta", need: "physicalSafety", label: "Службы работают слаженнее", value: 0.9 },
+        { kind: "daily_need_delta", need: "housingSafety", label: "Контроль районных проблем становится лучше", value: 0.7 },
+      ],
+    };
+  }
+
+  private buildFactionPenalty(side: DailyDecisionSide): FactionDemandOutcome {
+    if (side === "residents") {
+      return {
+        label: "Требование жителей проигнорировано: настроение и доверие просели.",
+        budgetDelta: 0,
+        pressureDelta: 18,
+        effects: [
+          { kind: "daily_need_delta", need: "socialRating", label: "Игнорирование жалоб бьет по доверию", value: -2.2 },
+          { kind: "daily_need_delta", need: "wellbeing", label: "Нерешенные бытовые проблемы давят на людей", value: -1.4 },
+        ],
+      };
+    }
+    if (side === "business") {
+      return {
+        label: "Бизнес не дождался ответа: часть компаний замораживает оборот.",
+        budgetDelta: -600,
+        pressureDelta: 16,
+        effects: [
+          { kind: "daily_business_delta", businessType: "service", label: "Сервисные компании откладывают найм и закупки", value: -130 },
+          { kind: "daily_business_delta", businessType: "food", label: "Торговый оборот проседает из-за неопределенности", value: -90 },
+        ],
+      };
+    }
+    return {
+      label: "Госаппарат не получил решения: срочные расходы выросли.",
+      budgetDelta: -1200,
+      pressureDelta: 20,
+      effects: [
+        { kind: "daily_need_delta", need: "physicalSafety", label: "Просроченные поручения ухудшают ощущение безопасности", value: -1.3 },
+        { kind: "daily_need_delta", need: "housingSafety", label: "Районные проблемы накапливаются без реакции", value: -1.1 },
+      ],
+    };
+  }
+
+  private buildFactionRequirement(card: DailyEventCard): string {
+    const deadlineText = card.tone === "critical" ? "до конца следующего дня" : "в течение двух дней";
+    if (card.side === "residents") {
+      return `Принять любую реакцию в пользу жителей ${deadlineText}.`;
+    }
+    if (card.side === "business") {
+      return `Принять любую реакцию в пользу бизнеса ${deadlineText}.`;
+    }
+    return `Принять любую реакцию в пользу власти ${deadlineText}.`;
+  }
+
+  private generateFactionDemands(cards = this.getDailyEventCards()): void {
+    if (this.state.gameStatus !== "active") return;
+    for (const card of cards) {
+      const hasActive = this.factionDemands.some(demand => demand.side === card.side && demand.status === "active");
+      const recentResolved = this.factionDemands.some(demand =>
+        demand.side === card.side &&
+        demand.status !== "active" &&
+        demand.resolvedDay != null &&
+        this.state.gameDay - demand.resolvedDay <= 1
+      );
+      if (hasActive || recentResolved) continue;
+      if (card.tone !== "critical" && (this.state.gameDay + card.side.length) % 2 !== 0) continue;
+
+      const pressure = card.tone === "critical" ? 82 : card.tone === "warning" ? 58 : 36;
+      this.factionDemands.unshift({
+        id: `faction-${this.factionDemandSeq++}`,
+        side: card.side,
+        sideLabel: card.sideLabel,
+        title: card.title,
+        description: card.eventText,
+        requirement: this.buildFactionRequirement(card),
+        pressure,
+        createdDay: this.state.gameDay,
+        deadlineDay: this.state.gameDay + (card.tone === "critical" ? 1 : 2),
+        status: "active",
+        resolvedDay: null,
+        resolutionLabel: null,
+        reward: this.buildFactionReward(card.side),
+        penalty: this.buildFactionPenalty(card.side),
+      });
+    }
+    this.factionDemands = this.factionDemands.slice(0, 18);
+  }
+
+  private resolveExpiredFactionDemands(): void {
+    for (const demand of this.factionDemands) {
+      if (demand.status === "active" && this.state.gameDay > demand.deadlineDay) {
+        this.applyFactionOutcome(demand, demand.penalty, "ignored");
+      }
+    }
+  }
+
+  private completeFactionDemandForSide(side: DailyDecisionSide): void {
+    const demand = this.factionDemands
+      .filter(item => item.side === side && item.status === "active")
+      .sort((a, b) => a.deadlineDay - b.deadlineDay)[0];
+    if (!demand) return;
+    this.applyFactionOutcome(demand, demand.reward, "completed");
+  }
+
+  private serializeFactionDemand(demand: FactionDemandRecord) {
+    return {
+      ...demand,
+      daysRemaining: demand.status === "active" ? Math.max(0, demand.deadlineDay - this.state.gameDay + 1) : 0,
+    };
+  }
+
+  private getFactionPressureState(cards = this.getDailyEventCards()) {
+    this.resolveExpiredFactionDemands();
+    this.generateFactionDemands(cards);
+    const activeDemands = this.factionDemands
+      .filter(demand => demand.status === "active")
+      .sort((a, b) => a.deadlineDay - b.deadlineDay || b.pressure - a.pressure);
+    const recentDemands = this.factionDemands
+      .filter(demand => demand.status !== "active")
+      .sort((a, b) => (b.resolvedDay ?? 0) - (a.resolvedDay ?? 0))
+      .slice(0, 6);
+    const pressureBySide = (["residents", "business", "government"] as DailyDecisionSide[]).map(side => {
+      const active = activeDemands.filter(demand => demand.side === side);
+      const card = cards.find(item => item.side === side);
+      const pressure = active.length > 0
+        ? Math.max(...active.map(demand => demand.pressure))
+        : card?.tone === "critical" ? 70 : card?.tone === "warning" ? 45 : 25;
+      return {
+        side,
+        sideLabel: card?.sideLabel ?? side,
+        pressure: Math.round(pressure),
+        activeCount: active.length,
+      };
+    });
+    return {
+      currentDay: this.state.gameDay,
+      activeDemands: activeDemands.map(demand => this.serializeFactionDemand(demand)),
+      recentDemands: recentDemands.map(demand => this.serializeFactionDemand(demand)),
+      pressureBySide,
+      completedCount: this.factionDemands.filter(demand => demand.status === "completed").length,
+      ignoredCount: this.factionDemands.filter(demand => demand.status === "ignored").length,
+    };
+  }
+
+  private getDailyCardDecisionIds(side: DailyDecisionSide, preferred: string[]): string[] {
+    const sideDecisionIds = DAILY_DECISION_CATALOG
+      .filter(decision => decision.side === side)
+      .map(decision => decision.id);
+    const result: string[] = [];
+    for (const id of preferred) {
+      if (sideDecisionIds.includes(id) && !result.includes(id)) result.push(id);
+    }
+    const offset = sideDecisionIds.length > 0 ? (this.state.gameDay + side.length) % sideDecisionIds.length : 0;
+    const rotated = [...sideDecisionIds.slice(offset), ...sideDecisionIds.slice(0, offset)];
+    for (const id of rotated) {
+      if (result.length >= 3) break;
+      if (!result.includes(id)) result.push(id);
+    }
+    return result.slice(0, 3);
+  }
+
+  private getDailyEventCards(): DailyEventCard[] {
+    const { avgMood, avgWealth, unemploymentRate } = this.getAggregateStats();
+    const foodRatio = this.getFoodMarketRatio();
+    const avgHealth = this.getAverageNeed("health");
+    const avgSleep = this.getAverageNeed("sleep");
+    const avgFinancialSafety = this.getAverageNeed("financialSafety");
+    const avgPhysicalSafety = this.getAverageNeed("physicalSafety");
+    const avgHousingSafety = this.getAverageNeed("housingSafety");
+    const businesses = Array.from(this.businesses.values());
+    const goods = Array.from(this.goods.values());
+    const profitableCount = businesses.filter(b => b.balance > 0).length;
+    const unprofitableCount = businesses.filter(b => b.balance < 0).length;
+    const profitablePct = businesses.length > 0 ? (profitableCount / businesses.length) * 100 : 100;
+    const totalDemand = goods.reduce((s, g) => s + g.demand, 0);
+    const totalSupply = goods.reduce((s, g) => s + g.supply, 0);
+    const marketRatio = totalDemand > 0 ? totalSupply / totalDemand : 1;
+    const dailyIncome = Math.max(1, this.state.totalTaxCollected / Math.max(1, this.state.gameDay));
+    const budgetDays = this.state.governmentBudget / dailyIncome;
+    const securityAvg = (avgPhysicalSafety + avgHousingSafety) / 2;
+
+    const residentsCritical = avgMood < 42 || avgFinancialSafety < 45 || foodRatio < 0.75 || avgHealth < 45;
+    const businessCritical = profitablePct < 45 || unprofitableCount >= Math.max(3, businesses.length * 0.35) || marketRatio < 0.72;
+    const governmentCritical = this.state.governmentBudget < 15000 || budgetDays < 3 || securityAvg < 52;
+
+    const residentsTitle = residentsCritical
+      ? "Жители требуют срочной реакции"
+      : avgMood > 68 && avgFinancialSafety > 65
+        ? "Жители замечают улучшения"
+        : "Жители просят внимания";
+    const residentsEvent = foodRatio < 0.75
+      ? "В районах жалуются на рост цен и нехватку доступной еды."
+      : avgFinancialSafety < 45
+        ? "Семьи с низкими доходами просят адресной помощи до следующей выплаты."
+        : avgHealth < 45
+          ? "Жители сообщают о проблемах со здоровьем и доступом к услугам."
+          : avgSleep < 45
+            ? "Усталость накапливается: люди хуже восстанавливаются после работы."
+            : "Обращения жителей показывают, какие бытовые проблемы сильнее всего давят на настроение.";
+
+    const businessTitle = businessCritical
+      ? "Бизнес предупреждает о закрытиях"
+      : profitablePct > 70 && marketRatio >= 0.9
+        ? "Бизнес готов к расширению"
+        : "Бизнес просит предсказуемости";
+    const businessEvent = profitablePct < 45
+      ? "Доля прибыльных компаний падает, предприниматели откладывают найм."
+      : unprofitableCount > 0
+        ? "Несколько компаний работают в минус и просят короткую передышку."
+        : marketRatio < 0.8
+          ? "Цепочки поставок не успевают за спросом, склады и магазины расходятся по темпу."
+          : "Предприниматели предлагают сделку: больше рабочих мест в обмен на поддержку оборота.";
+
+    const governmentTitle = governmentCritical
+      ? "Финансовый отдел бьет тревогу"
+      : this.state.governmentBudget > 80000 && securityAvg > 65
+        ? "Государство может укрепить устойчивость"
+        : "Государству нужен управленческий выбор";
+    const governmentEvent = this.state.governmentBudget < 15000
+      ? "Расходы подбираются к опасной черте, запас бюджета почти исчерпан."
+      : budgetDays < 3
+        ? "Текущих доходов мало относительно темпа расходов."
+        : securityAvg < 52
+          ? "Службы безопасности просят усилить контроль в районах."
+          : "Аппарат мэрии предлагает навести порядок в расходах, пока кризис не стал явным.";
+
+    const residentDecisionIds = this.getDailyCardDecisionIds(
+      "residents",
+      foodRatio < 0.75
+        ? ["residents_food_subsidy", "residents_targeted_aid", "residents_public_promise"]
+        : avgHealth < 50
+          ? ["residents_mobile_clinics", "residents_targeted_aid", "residents_public_promise"]
+          : avgSleep < 50
+            ? ["residents_quiet_evenings", "residents_housing_repairs", "residents_public_promise"]
+            : securityAvg < 55 || avgHousingSafety < 55
+              ? ["residents_housing_repairs", "residents_quiet_evenings", "residents_targeted_aid"]
+              : ["residents_public_promise", "residents_targeted_aid", "residents_quiet_evenings"],
+    );
+    const businessDecisionIds = this.getDailyCardDecisionIds(
+      "business",
+      marketRatio < 0.8
+        ? ["business_supply_chain", "business_food_contracts", "business_micro_grants"]
+        : profitablePct < 55 || unprofitableCount > 0
+          ? ["business_micro_grants", "business_hiring_vouchers", "business_tax_relief"]
+          : unemploymentRate > 8
+            ? ["business_hiring_vouchers", "business_micro_grants", "business_tax_relief"]
+            : ["business_fast_permits", "business_tax_relief", "business_supply_chain"],
+    );
+    const governmentDecisionIds = this.getDailyCardDecisionIds(
+      "government",
+      this.state.governmentBudget < 15000 || budgetDays < 3
+        ? ["government_tax_surcharge", "government_emergency_reserve", "government_spending_audit"]
+        : securityAvg < 52
+          ? ["government_security_push", "government_service_overtime", "government_data_inspection"]
+          : ["government_data_inspection", "government_spending_audit", "government_service_overtime"],
+    );
+
+    return [
+      {
+        id: "residents",
+        side: "residents",
+        sideLabel: "Жители",
+        title: residentsTitle,
+        eventText: residentsEvent,
+        daySummary: `Настроение ${avgMood.toFixed(1)}, фин. безопасность ${avgFinancialSafety.toFixed(1)}, еда ${foodRatio.toFixed(2)}x.`,
+        tone: residentsCritical ? "critical" : avgMood > 68 ? "opportunity" : "warning",
+        activity: foodRatio < 0.75 || avgFinancialSafety < 45 ? "resident_requests" : "city_news",
+        decisionIds: residentDecisionIds,
+      },
+      {
+        id: "business",
+        side: "business",
+        sideLabel: "Бизнес",
+        title: businessTitle,
+        eventText: businessEvent,
+        daySummary: `Прибыльных ${profitablePct.toFixed(0)}%, убыточных ${unprofitableCount}, рынок ${marketRatio.toFixed(2)}x.`,
+        tone: businessCritical ? "critical" : profitablePct > 70 ? "opportunity" : "warning",
+        activity: marketRatio < 0.8 ? "crisis_staff" : "business_talks",
+        decisionIds: businessDecisionIds,
+      },
+      {
+        id: "government",
+        side: "government",
+        sideLabel: "Государство",
+        title: governmentTitle,
+        eventText: governmentEvent,
+        daySummary: `Бюджет ${Math.round(this.state.governmentBudget).toLocaleString()}, запас ${budgetDays.toFixed(1)} дн., безопасность ${securityAvg.toFixed(1)}.`,
+        tone: governmentCritical ? "critical" : this.state.governmentBudget > 80000 ? "opportunity" : "warning",
+        activity: this.state.governmentBudget < 15000 || budgetDays < 3 ? "budget_session" : "crisis_staff",
+        decisionIds: governmentDecisionIds,
+      },
+    ];
+  }
+
+  private getDailySummary(cards = this.getDailyEventCards()): string {
+    const critical = cards.filter(card => card.tone === "critical").map(card => card.sideLabel);
+    if (critical.length > 0) {
+      return `За день обострились вопросы: ${critical.join(", ")}. Можно поддержать только одну сторону.`;
+    }
+    const opportunities = cards.filter(card => card.tone === "opportunity").map(card => card.sideLabel);
+    if (opportunities.length > 0) {
+      return `День прошел без острого кризиса. Лучшие возможности сейчас: ${opportunities.join(", ")}.`;
+    }
+    return "День прошел напряженно, но без единственного очевидного кризиса. Выберите, какую сторону города поддержать.";
+  }
+
+  private hasIssuedDailyDecisionToday(): boolean {
+    return this.dailyDecrees.some(decree => decree.issuedDay === this.state.gameDay);
+  }
+
+  private getDecisionAvailability(definition: DailyDecisionDefinition) {
+    const latest = this.dailyDecrees
+      .filter(decree => decree.decisionId === definition.id)
+      .sort((a, b) => b.issuedDay - a.issuedDay)[0];
+    const cooldownRemaining = latest
+      ? Math.max(0, latest.issuedDay + latest.cooldownDays - this.state.gameDay)
+      : 0;
+    const activeDuplicate = this.dailyDecrees.some(decree =>
+      decree.decisionId === definition.id && (decree.status === "active" || decree.status === "pending")
+    );
+    const alreadyChosenToday = this.hasIssuedDailyDecisionToday();
+    const reasons: string[] = [];
+    if (this.state.gameStatus !== "active") reasons.push("Партия завершена");
+    if (alreadyChosenToday) reasons.push("Событие дня уже выбрано");
+    if (this.state.actionPointsRemaining < definition.actionPointCost) reasons.push("Не хватает очков действий");
+    if (this.state.governmentBudget < definition.budgetCost) reasons.push("Не хватает бюджета");
+    if (cooldownRemaining > 0) reasons.push(`Кулдаун ${cooldownRemaining} дн.`);
+    if (activeDuplicate) reasons.push("Указ уже действует или ожидает запуска");
+    return {
+      canIssue: reasons.length === 0,
+      unavailableReason: reasons[0] ?? null,
+      cooldownRemaining,
+    };
+  }
+
+  private getResidentDistrict(agentId: number): string {
+    return RESIDENT_REQUEST_DISTRICTS[Math.abs(agentId) % RESIDENT_REQUEST_DISTRICTS.length];
+  }
+
+  private getFoodPressure(): boolean {
+    let demand = 0;
+    let supply = 0;
+    for (const good of this.goods.values()) {
+      const business = good.businessId != null ? this.businesses.get(good.businessId) : null;
+      if (business?.type === "food" || business?.type === "farm") {
+        demand += good.demand;
+        supply += good.supply;
+      }
+    }
+    return demand > 0 && supply / demand < 0.75;
+  }
+
+  private getResidentRequestCandidates(): ResidentRequestRecord[] {
+    const { unemploymentRate } = this.getAggregateStats();
+    const foodPressure = this.getFoodPressure();
+    const existingKeys = new Set(this.residentRequests.map(request => `${request.agentId}:${request.category}`));
+    const candidates: ResidentRequestRecord[] = [];
+
+    const addCandidate = (
+      agent: AgentState,
+      category: ResidentRequestCategory,
+      problem: string,
+      need?: keyof AgentState["needs"],
+    ) => {
+      if (existingKeys.has(`${agent.id}:${category}`)) return;
+      candidates.push({
+        id: `req-${this.residentRequestSeq + candidates.length}`,
+        agentId: agent.id,
+        residentName: agent.name,
+        residentAge: agent.age,
+        district: this.getResidentDistrict(agent.id),
+        category,
+        categoryLabel: RESIDENT_REQUEST_CATEGORY_LABELS[category],
+        problem,
+        need,
+        helpCost: randInt(10, 50),
+        createdTick: this.state.tick,
+        createdDay: this.state.gameDay,
+      });
+    };
+
+    for (const agent of this.agents.values()) {
+      if (agent.isRetired && agent.age > 90) continue;
+      if (agent.money < 45) {
+        addCandidate(agent, "finance", pick([
+          "Не хватает денег до следующей выплаты.",
+          "Просит разовую помощь на базовые расходы.",
+          "Нужна поддержка после неудачной недели.",
+        ]), "financialSafety");
+      }
+      if (!agent.isRetired && agent.employerId == null && agent.age >= 18 && agent.age <= 65 && unemploymentRate > 8) {
+        addCandidate(agent, "work", pick([
+          "Просит помочь найти работу в городе.",
+          "Жалуется, что вакансий рядом почти нет.",
+          "Нужна поддержка при поиске нового места.",
+        ]), "financialSafety");
+      }
+      if (agent.needs.hunger < 55 || foodPressure) {
+        addCandidate(agent, "food", pick([
+          "Жалуется на дорогую еду и пустые полки.",
+          "Просит продуктовый набор для семьи.",
+          "Сообщает, что районный магазин не справляется со спросом.",
+        ]), "hunger");
+      }
+      if (agent.needs.health < 55) {
+        addCandidate(agent, "health", pick([
+          "Просит помочь попасть к врачу быстрее.",
+          "Нужна компенсация на лечение.",
+          "Жалуется на ухудшение здоровья.",
+        ]), "health");
+      }
+      if (agent.needs.comfort < 45 || agent.needs.wellbeing < 45) {
+        addCandidate(agent, "comfort", pick([
+          "Просит решить бытовую проблему в доме.",
+          "Жалуется на усталость и нехватку условий для отдыха.",
+          "Нужна небольшая помощь с ремонтом жилья.",
+        ]), "comfort");
+      }
+      if (agent.needs.physicalSafety < 50 || agent.needs.housingSafety < 50) {
+        addCandidate(agent, "safety", pick([
+          "Сообщает о небезопасном дворе.",
+          "Просит усилить патрулирование возле дома.",
+          "Жалуется на тревожную обстановку в районе.",
+        ]), "physicalSafety");
+      }
+    }
+
+    return candidates;
+  }
+
+  private generateResidentRequests(): void {
+    const slots = RESIDENT_REQUEST_BUFFER_MAX - this.residentRequests.length;
+    if (slots <= 0 || this.agents.size === 0) return;
+
+    const candidates = this.getResidentRequestCandidates();
+    if (candidates.length === 0) return;
+
+    const count = Math.min(slots, randInt(1, 2), candidates.length);
+    for (let i = 0; i < count; i++) {
+      const index = randInt(0, candidates.length - 1);
+      const [candidate] = candidates.splice(index, 1);
+      candidate.id = `req-${this.residentRequestSeq++}`;
+      this.residentRequests.unshift(candidate);
+    }
+  }
+
+  getResidentRequestsState() {
+    return {
+      currentDay: this.state.gameDay,
+      pendingCount: this.residentRequests.length,
+      bufferMax: RESIDENT_REQUEST_BUFFER_MAX,
+      reputationDelta: Math.round(this.residentRequestReputationDelta * 10) / 10,
+      requests: this.residentRequests.map(request => ({
+        ...request,
+        canHelp: this.state.gameStatus === "active" && this.state.governmentBudget >= request.helpCost,
+      })),
+    };
+  }
+
+  private syncResidentRequestAgent(agent: AgentState): void {
+    sqlite.prepare(`
+      UPDATE agents SET mood = ?, money = ? WHERE id = ?
+    `).run(agent.mood, agent.money, agent.id);
+    sqlite.prepare(`
+      UPDATE needs SET
+        hunger = ?,
+        comfort = ?,
+        social = ?,
+        health = ?,
+        sleep = ?,
+        education = ?,
+        entertainment = ?,
+        faith = ?,
+        housing_safety = ?,
+        financial_safety = ?,
+        physical_safety = ?,
+        social_rating = ?,
+        wellbeing = ?
+      WHERE agent_id = ?
+    `).run(
+      agent.needs.hunger,
+      agent.needs.comfort,
+      agent.needs.social,
+      agent.needs.health,
+      agent.needs.sleep,
+      agent.needs.education,
+      agent.needs.entertainment,
+      agent.needs.faith,
+      agent.needs.housingSafety,
+      agent.needs.financialSafety,
+      agent.needs.physicalSafety,
+      agent.needs.socialRating,
+      agent.needs.wellbeing,
+      agent.id,
+    );
+  }
+
+  async processResidentRequest(requestId: string, action: ResidentRequestAction) {
+    const index = this.residentRequests.findIndex(request => request.id === requestId);
+    if (index < 0) {
+      throw new Error("UNKNOWN_RESIDENT_REQUEST");
+    }
+    if (this.state.gameStatus !== "active") {
+      throw new Error("GAME_FINISHED");
+    }
+
+    const [request] = this.residentRequests.splice(index, 1);
+    const agent = this.agents.get(request.agentId);
+    if (action === "help") {
+      if (this.state.governmentBudget < request.helpCost) {
+        this.residentRequests.splice(index, 0, request);
+        throw new Error("NOT_ENOUGH_BUDGET");
+      }
+      this.state.governmentBudget = Math.max(0, this.state.governmentBudget - request.helpCost);
+      this.residentRequestReputationDelta = clamp(this.residentRequestReputationDelta + rand(0.1, 0.3), -5, 5);
+      if (agent) {
+        agent.mood = clamp(agent.mood + rand(4, 8));
+        agent.needs.wellbeing = clamp(agent.needs.wellbeing + rand(2, 5));
+        if (request.need) {
+          agent.needs[request.need] = clamp(agent.needs[request.need] + rand(6, 12));
+        }
+        if (request.category === "finance" || request.category === "work") {
+          agent.money += request.helpCost;
+        }
+        this.syncResidentRequestAgent(agent);
+      }
+    } else if (action === "decline") {
+      this.residentRequestReputationDelta = clamp(this.residentRequestReputationDelta - rand(0.1, 0.3), -5, 5);
+      if (agent) {
+        agent.mood = clamp(agent.mood - rand(2, 5));
+        agent.needs.wellbeing = clamp(agent.needs.wellbeing - rand(1, 3));
+        this.syncResidentRequestAgent(agent);
+      }
+    } else {
+      this.residentRequests.splice(index, 0, request);
+      throw new Error("UNKNOWN_RESIDENT_REQUEST_ACTION");
+    }
+
+    await this.persistState();
+    return this.getResidentRequestsState();
+  }
+
+  getDailyDecisionsState() {
+    this.refreshDailyDecreeStatuses();
+    const activeDecrees = this.dailyDecrees.filter(decree => decree.status === "active");
+    const eventCards = this.getDailyEventCards();
+    const cardsBySide = new Map(eventCards.map(card => [card.side, card]));
+    const chosenToday = this.dailyDecrees.find(decree => decree.issuedDay === this.state.gameDay) ?? null;
+    return {
+      currentDay: this.state.gameDay,
+      actionPointsRemaining: this.state.actionPointsRemaining,
+      actionPointsMax: this.state.actionPointsMax,
+      dailySummary: this.getDailySummary(eventCards),
+      hasChosenToday: chosenToday != null,
+      chosenDecisionId: chosenToday?.decisionId ?? null,
+      factionPressure: this.getFactionPressureState(eventCards),
+      eventCards,
+      decisions: DAILY_DECISION_CATALOG.map(definition => {
+        const availability = this.getDecisionAvailability(definition);
+        const card = cardsBySide.get(definition.side);
+        return {
+          ...definition,
+          cardTitle: card?.title ?? definition.sideLabel,
+          eventText: card?.eventText ?? definition.description,
+          daySummary: card?.daySummary ?? "",
+          tone: card?.tone ?? "warning",
+          ...availability,
+        };
+      }),
+      activeEffects: activeDecrees.flatMap(decree =>
+        decree.effects.map(effect => ({
+          id: `${decree.id}-${effect.kind}-${effect.label}`,
+          decisionId: decree.decisionId,
+          title: decree.title,
+          label: effect.label,
+          value: effect.value,
+          startDay: decree.startDay,
+          endDay: decree.endDay,
+          remainingDays: Math.max(0, decree.endDay - this.state.gameDay + 1),
+        })),
+      ),
+      pendingDecrees: this.dailyDecrees
+        .filter(decree => decree.status === "pending")
+        .sort((a, b) => a.startDay - b.startDay)
+        .map(decree => this.serializeDecree(decree)),
+      recentDecrees: this.dailyDecrees
+        .slice()
+        .sort((a, b) => b.issuedDay - a.issuedDay || b.id - a.id)
+        .slice(0, 12)
+        .map(decree => this.serializeDecree(decree)),
+    };
+  }
+
+  private serializeDecree(decree: DailyDecreeRecord) {
+    return {
+      id: decree.id,
+      decisionId: decree.decisionId,
+      title: decree.title,
+      description: decree.description,
+      status: decree.status,
+      issuedDay: decree.issuedDay,
+      startDay: decree.startDay,
+      endDay: decree.endDay,
+      remainingDays: decree.status === "active" ? Math.max(0, decree.endDay - this.state.gameDay + 1) : 0,
+      actionPointCost: decree.actionPointCost,
+      budgetCost: decree.budgetCost,
+      effects: decree.effects,
+    };
+  }
+
+  private insertDailyDecreeRecord(record: Omit<DailyDecreeRecord, "id">): DailyDecreeRecord {
+    const inserted = sqlite.prepare(`
+      INSERT INTO daily_decrees (
+        decision_id, title, description, status, issued_day, start_day, end_day,
+        action_point_cost, budget_cost, cooldown_days, effects_json
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      record.decisionId,
+      record.title,
+      record.description,
+      record.status,
+      record.issuedDay,
+      record.startDay,
+      record.endDay,
+      record.actionPointCost,
+      record.budgetCost,
+      record.cooldownDays,
+      JSON.stringify(record.effects),
+    ) as { lastInsertRowid?: number | bigint };
+
+    return {
+      ...record,
+      id: Number(inserted.lastInsertRowid ?? 0),
+    };
+  }
+
+  async issueDailyDecision(decisionId: string) {
+    const definition = DAILY_DECISION_MAP.get(decisionId);
+    if (!definition) {
+      throw new Error("UNKNOWN_DECISION");
+    }
+    this.refreshDailyDecreeStatuses();
+    const availability = this.getDecisionAvailability(definition);
+    if (!availability.canIssue) {
+      throw new Error(availability.unavailableReason ?? "DECISION_UNAVAILABLE");
+    }
+
+    const startDay = this.state.gameDay + definition.delayDays;
+    const endDay = startDay + definition.durationDays - 1;
+    const status: DailyDecreeStatus = this.state.gameDay < startDay ? "pending" : "active";
+    this.state.actionPointsRemaining -= definition.actionPointCost;
+    this.state.governmentBudget = Math.max(0, this.state.governmentBudget - definition.budgetCost);
+
+    const record = this.insertDailyDecreeRecord({
+      decisionId: definition.id,
+      title: definition.title,
+      description: definition.description,
+      status,
+      issuedDay: this.state.gameDay,
+      startDay,
+      endDay,
+      actionPointCost: definition.actionPointCost,
+      budgetCost: definition.budgetCost,
+      cooldownDays: definition.cooldownDays,
+      effects: definition.effects,
+    });
+    const sideEffectRecords = (definition.sideEffects ?? []).map(sideEffect => {
+      const sideStartDay = this.state.gameDay + sideEffect.delayDays;
+      const sideEndDay = sideStartDay + sideEffect.durationDays - 1;
+      const sideStatus: DailyDecreeStatus = this.state.gameDay < sideStartDay ? "pending" : "active";
+      return this.insertDailyDecreeRecord({
+        decisionId: definition.id,
+        title: `Побочный эффект: ${sideEffect.title}`,
+        description: sideEffect.description,
+        status: sideStatus,
+        issuedDay: this.state.gameDay,
+        startDay: sideStartDay,
+        endDay: sideEndDay,
+        actionPointCost: 0,
+        budgetCost: 0,
+        cooldownDays: 0,
+        effects: sideEffect.effects,
+      });
+    });
+    this.dailyDecrees.unshift(...sideEffectRecords);
+    this.dailyDecrees.unshift(record);
+    if (status === "active") {
+      this.applyDailyDecisionEffects([record]);
+    }
+    const activeSideEffects = sideEffectRecords.filter(sideEffect => sideEffect.status === "active");
+    if (activeSideEffects.length > 0) {
+      this.applyDailyDecisionEffects(activeSideEffects);
+    }
+    this.completeFactionDemandForSide(definition.side);
+    await this.persistState();
+    return this.getDailyDecisionsState();
+  }
+
   getSimulationState() {
     const { avgMood, avgWealth, unemploymentRate } = this.getAggregateStats();
     const gdp = Array.from(this.businesses.values()).reduce((s, b) => s + b.balance, 0);
+    const goal = this.evaluateGoal(gdp);
     return {
       tick: this.state.tick,
       running: this.state.running,
       gameHour: this.state.gameHour,
       gameDay: this.state.gameDay,
+      scenarioType: this.state.scenarioType,
+      goalType: this.state.goalType,
+      dayLimit: this.state.dayLimit,
+      daysRemaining: Math.max(0, this.state.dayLimit - this.state.gameDay + 1),
+      gameStatus: this.state.gameStatus,
+      gameOutcomeReason: this.state.gameOutcomeReason,
+      goalProgress: goal.progress,
+      reputationResidents: goal.residentsScore,
+      reputationBusiness: goal.businessScore,
+      reputationGovernment: goal.governmentScore,
+      actionPointsRemaining: this.state.actionPointsRemaining,
+      actionPointsMax: this.state.actionPointsMax,
       population: this.agents.size,
       avgMood: Math.round(avgMood * 10) / 10,
       gdp: Math.round(gdp),

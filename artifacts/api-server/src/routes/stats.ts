@@ -7,7 +7,6 @@ import {
   GetStatsHistoryQueryParams,
   GetStatsHistoryResponse,
   GetStatsSummaryResponse,
-  GetTopAgentsQueryParams,
   GetTopAgentsResponse,
 } from "@workspace/api-zod";
 
@@ -34,12 +33,11 @@ router.get("/stats/summary", (_req, res): void => {
 });
 
 router.get("/stats/top-agents", (req, res): void => {
-  const parsed = GetTopAgentsQueryParams.safeParse(req.query);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+  const limit = req.query.limit === undefined ? 10 : Number(req.query.limit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    res.status(400).json({ error: "limit must be an integer from 1 to 100" });
     return;
   }
-  const limit = parsed.data.limit ?? 10;
   const top = simulationEngine.getTopAgents(limit);
   res.json(GetTopAgentsResponse.parse(top));
 });

@@ -11,13 +11,12 @@ import {
 } from "@workspace/api-client-react";
 import {
   Building2, Package, TrendingDown, UserMinus, UserPlus,
-  BarChart2, Table2, ChevronUp, ChevronDown, ArrowRight, Tractor, Wrench, Utensils, Hammer,
+  ChevronUp, ChevronDown, ArrowRight, Tractor, Wrench, Utensils, Hammer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type BizItem  = NonNullable<ListBusinessesQueryResult>[number];
 type GoodItem = NonNullable<ListGoodsQueryResult>[number];
-type ViewMode = "table" | "analysis";
 type BizGroupBy = "type" | "status" | "size";
 type BizSortCol = "label" | "count" | "profitablePct" | "avgBalance" | "totalEmployees" | "avgProduction";
 type GoodSortCol = "name" | "ratio" | "priceDiff" | "demand" | "supply" | "currentPrice" | "quality";
@@ -72,7 +71,6 @@ function getBizGroupKey(biz: BizItem, groupBy: BizGroupBy): string {
 }
 
 export default function EconomyPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [bizGroupBy, setBizGroupBy] = useState<BizGroupBy>("type");
   const [bizSortCol, setBizSortCol] = useState<BizSortCol>("count");
   const [bizSortDir, setBizSortDir] = useState<"asc" | "desc">("desc");
@@ -191,43 +189,9 @@ export default function EconomyPage() {
             {businesses?.length ?? 0} бизнесов · {goods?.length ?? 0} товаров
           </p>
         </div>
-        <div className="flex items-center bg-secondary border border-border rounded overflow-hidden">
-          <button
-            onClick={() => setViewMode("table")}
-            className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors",
-              viewMode === "table"
-                ? "bg-[hsl(173,80%,40%)]/15 text-[hsl(173,80%,40%)]"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Table2 className="w-3.5 h-3.5" />
-            Таблица
-          </button>
-          <button
-            onClick={() => setViewMode("analysis")}
-            className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors",
-              viewMode === "analysis"
-                ? "bg-[hsl(173,80%,40%)]/15 text-[hsl(173,80%,40%)]"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <BarChart2 className="w-3.5 h-3.5" />
-            Анализ
-          </button>
-        </div>
       </div>
 
-      {viewMode === "table" && (
-        <>
-          <BizTable businesses={businesses ?? []} loading={bizLoading} />
-          <GoodsTable goods={goods ?? []} loading={goodsLoading} />
-        </>
-      )}
-
-      {viewMode === "analysis" && (
-        <div className="space-y-5">
+      <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <SmCard label="Прибыльных бизнесов" value={`${summaryStats.profitable} / ${businesses?.length ?? 0}`} color="hsl(173,80%,40%)" />
             <SmCard label="Общий баланс рынка" value={summaryStats.totalBal.toLocaleString()} color={summaryStats.totalBal >= 0 ? "hsl(173,80%,40%)" : "hsl(348,83%,52%)"} />
@@ -540,8 +504,7 @@ export default function EconomyPage() {
             );
           })()}
 
-        </div>
-      )}
+      </div>
     </div>
   );
 }

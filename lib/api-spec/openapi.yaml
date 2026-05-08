@@ -24,6 +24,8 @@ tags:
     description: Configuration operations
   - name: stats
     description: Statistics operations
+  - name: decisions
+    description: Daily mayor decisions
 paths:
   /healthz:
     get:
@@ -77,6 +79,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/SimulationState"
 
+  /simulation/new-game:
+    post:
+      operationId: newGame
+      tags: [simulation]
+      summary: Start a new game scenario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewGameRequest"
+      responses:
+        "200":
+          description: New game started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationState"
+        "400":
+          description: Invalid new game options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /simulation/state:
     get:
       operationId: getSimulationState
@@ -89,6 +116,94 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SimulationState"
+
+  /decisions/day:
+    get:
+      operationId: getDailyDecisions
+      tags: [decisions]
+      summary: Get current daily decisions state
+      responses:
+        "200":
+          description: Daily decisions state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyDecisionsState"
+
+  /decisions/issue:
+    post:
+      operationId: issueDailyDecision
+      tags: [decisions]
+      summary: Issue a daily decision decree
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueDailyDecisionRequest"
+      responses:
+        "200":
+          description: Updated daily decisions state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyDecisionsState"
+        "400":
+          description: Invalid decision payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Decision cannot be issued now
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /decisions/requests:
+    get:
+      operationId: getResidentRequests
+      tags: [decisions]
+      summary: Get active resident requests
+      responses:
+        "200":
+          description: Resident requests queue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResidentRequestsState"
+
+  /decisions/requests/process:
+    post:
+      operationId: processResidentRequest
+      tags: [decisions]
+      summary: Help or decline a resident request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcessResidentRequestRequest"
+      responses:
+        "200":
+          description: Updated resident requests queue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResidentRequestsState"
+        "400":
+          description: Invalid resident request payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Resident request cannot be processed now
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /agents:
     get:
@@ -294,6 +409,33 @@ components:
           type: integer
         gameDay:
           type: integer
+        scenarioType:
+          type: string
+          enum: [balanced, crisis, growth, stability]
+        goalType:
+          type: string
+          enum: [balanced, crisis_recovery, economic_growth, social_stability]
+        dayLimit:
+          type: integer
+        daysRemaining:
+          type: integer
+        gameStatus:
+          type: string
+          enum: [active, victory, defeat]
+        gameOutcomeReason:
+          type: ["string", "null"]
+        goalProgress:
+          type: number
+        reputationResidents:
+          type: number
+        reputationBusiness:
+          type: number
+        reputationGovernment:
+          type: number
+        actionPointsRemaining:
+          type: integer
+        actionPointsMax:
+          type: integer
         population:
           type: integer
         avgMood:
@@ -313,6 +455,18 @@ components:
         - running
         - gameHour
         - gameDay
+        - scenarioType
+        - goalType
+        - dayLimit
+        - daysRemaining
+        - gameStatus
+        - gameOutcomeReason
+        - goalProgress
+        - reputationResidents
+        - reputationBusiness
+        - reputationGovernment
+        - actionPointsRemaining
+        - actionPointsMax
         - population
         - avgMood
         - gdp
@@ -320,6 +474,488 @@ components:
         - governmentBudget
         - totalTaxCollected
         - avgWealth
+
+    NewGameRequest:
+      type: object
+      properties:
+        scenarioType:
+          type: string
+          enum: [balanced, crisis, growth, stability]
+          default: balanced
+        goalType:
+          type: string
+          enum: [balanced, crisis_recovery, economic_growth, social_stability]
+          default: balanced
+        dayLimit:
+          type: integer
+          minimum: 7
+          maximum: 120
+          default: 30
+
+    IssueDailyDecisionRequest:
+      type: object
+      properties:
+        decisionId:
+          type: string
+      required:
+        - decisionId
+
+    DecisionEffect:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [need_decay_multiplier, social_multiplier, tax_delta, subsidy_multiplier, daily_need_delta, daily_business_delta, public_quality_delta, food_supply_delta]
+        label:
+          type: string
+        value:
+          type: number
+        need:
+          type: string
+        businessType:
+          type: string
+      required:
+        - kind
+        - label
+        - value
+
+    DailyDecision:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        side:
+          type: string
+          enum: [residents, business, government]
+        sideLabel:
+          type: string
+        category:
+          type: string
+          enum: [social, economy, safety, infrastructure]
+        activity:
+          type: string
+          enum: [resident_requests, budget_session, crisis_staff, business_talks, city_news]
+        responseLabel:
+          type: string
+        description:
+          type: string
+        impactSummary:
+          type: string
+        tradeoff:
+          type: string
+        cardTitle:
+          type: string
+        eventText:
+          type: string
+        daySummary:
+          type: string
+        tone:
+          type: string
+          enum: [critical, warning, opportunity]
+        actionPointCost:
+          type: integer
+        budgetCost:
+          type: number
+        cooldownDays:
+          type: integer
+        delayDays:
+          type: integer
+        durationDays:
+          type: integer
+        effects:
+          type: array
+          items:
+            $ref: "#/components/schemas/DecisionEffect"
+        canIssue:
+          type: boolean
+        unavailableReason:
+          type: ["string", "null"]
+        cooldownRemaining:
+          type: integer
+      required:
+        - id
+        - title
+        - side
+        - sideLabel
+        - category
+        - activity
+        - responseLabel
+        - description
+        - impactSummary
+        - tradeoff
+        - cardTitle
+        - eventText
+        - daySummary
+        - tone
+        - actionPointCost
+        - budgetCost
+        - cooldownDays
+        - delayDays
+        - durationDays
+        - effects
+        - canIssue
+        - unavailableReason
+        - cooldownRemaining
+
+    DailyEventCard:
+      type: object
+      properties:
+        id:
+          type: string
+          enum: [residents, business, government]
+        side:
+          type: string
+          enum: [residents, business, government]
+        sideLabel:
+          type: string
+        title:
+          type: string
+        eventText:
+          type: string
+        daySummary:
+          type: string
+        tone:
+          type: string
+          enum: [critical, warning, opportunity]
+        activity:
+          type: string
+          enum: [resident_requests, budget_session, crisis_staff, business_talks, city_news]
+        decisionIds:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - side
+        - sideLabel
+        - title
+        - eventText
+        - daySummary
+        - tone
+        - activity
+        - decisionIds
+
+    DailyDecree:
+      type: object
+      properties:
+        id:
+          type: integer
+        decisionId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [pending, active, expired]
+        issuedDay:
+          type: integer
+        startDay:
+          type: integer
+        endDay:
+          type: integer
+        remainingDays:
+          type: integer
+        actionPointCost:
+          type: integer
+        budgetCost:
+          type: number
+        effects:
+          type: array
+          items:
+            $ref: "#/components/schemas/DecisionEffect"
+      required:
+        - id
+        - decisionId
+        - title
+        - description
+        - status
+        - issuedDay
+        - startDay
+        - endDay
+        - remainingDays
+        - actionPointCost
+        - budgetCost
+        - effects
+
+    ActiveDecisionEffect:
+      type: object
+      properties:
+        id:
+          type: string
+        decisionId:
+          type: string
+        title:
+          type: string
+        label:
+          type: string
+        value:
+          type: number
+        startDay:
+          type: integer
+        endDay:
+          type: integer
+        remainingDays:
+          type: integer
+      required:
+        - id
+        - decisionId
+        - title
+        - label
+        - value
+        - startDay
+        - endDay
+        - remainingDays
+
+    FactionDemandOutcome:
+      type: object
+      properties:
+        label:
+          type: string
+        budgetDelta:
+          type: number
+        effects:
+          type: array
+          items:
+            $ref: "#/components/schemas/DecisionEffect"
+        pressureDelta:
+          type: number
+      required:
+        - label
+        - budgetDelta
+        - effects
+        - pressureDelta
+
+    FactionDemand:
+      type: object
+      properties:
+        id:
+          type: string
+        side:
+          type: string
+          enum: [residents, business, government]
+        sideLabel:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        requirement:
+          type: string
+        pressure:
+          type: number
+        createdDay:
+          type: integer
+        deadlineDay:
+          type: integer
+        daysRemaining:
+          type: integer
+        status:
+          type: string
+          enum: [active, completed, ignored]
+        resolvedDay:
+          type: ["integer", "null"]
+        resolutionLabel:
+          type: ["string", "null"]
+        reward:
+          $ref: "#/components/schemas/FactionDemandOutcome"
+        penalty:
+          $ref: "#/components/schemas/FactionDemandOutcome"
+      required:
+        - id
+        - side
+        - sideLabel
+        - title
+        - description
+        - requirement
+        - pressure
+        - createdDay
+        - deadlineDay
+        - daysRemaining
+        - status
+        - resolvedDay
+        - resolutionLabel
+        - reward
+        - penalty
+
+    FactionPressureBySide:
+      type: object
+      properties:
+        side:
+          type: string
+          enum: [residents, business, government]
+        sideLabel:
+          type: string
+        pressure:
+          type: number
+        activeCount:
+          type: integer
+      required:
+        - side
+        - sideLabel
+        - pressure
+        - activeCount
+
+    FactionPressureState:
+      type: object
+      properties:
+        currentDay:
+          type: integer
+        activeDemands:
+          type: array
+          items:
+            $ref: "#/components/schemas/FactionDemand"
+        recentDemands:
+          type: array
+          items:
+            $ref: "#/components/schemas/FactionDemand"
+        pressureBySide:
+          type: array
+          items:
+            $ref: "#/components/schemas/FactionPressureBySide"
+        completedCount:
+          type: integer
+        ignoredCount:
+          type: integer
+      required:
+        - currentDay
+        - activeDemands
+        - recentDemands
+        - pressureBySide
+        - completedCount
+        - ignoredCount
+
+    DailyDecisionsState:
+      type: object
+      properties:
+        currentDay:
+          type: integer
+        actionPointsRemaining:
+          type: integer
+        actionPointsMax:
+          type: integer
+        dailySummary:
+          type: string
+        hasChosenToday:
+          type: boolean
+        chosenDecisionId:
+          type: ["string", "null"]
+        factionPressure:
+          $ref: "#/components/schemas/FactionPressureState"
+        eventCards:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyEventCard"
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyDecision"
+        activeEffects:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActiveDecisionEffect"
+        pendingDecrees:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyDecree"
+        recentDecrees:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyDecree"
+      required:
+        - currentDay
+        - actionPointsRemaining
+        - actionPointsMax
+        - dailySummary
+        - hasChosenToday
+        - chosenDecisionId
+        - factionPressure
+        - eventCards
+        - decisions
+        - activeEffects
+        - pendingDecrees
+        - recentDecrees
+
+    ResidentRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        agentId:
+          type: integer
+        residentName:
+          type: string
+        residentAge:
+          type: integer
+        district:
+          type: string
+        category:
+          type: string
+          enum: [finance, work, food, health, comfort, safety]
+        categoryLabel:
+          type: string
+        problem:
+          type: string
+        need:
+          type: string
+        helpCost:
+          type: number
+        createdTick:
+          type: integer
+        createdDay:
+          type: integer
+        canHelp:
+          type: boolean
+      required:
+        - id
+        - agentId
+        - residentName
+        - residentAge
+        - district
+        - category
+        - categoryLabel
+        - problem
+        - helpCost
+        - createdTick
+        - createdDay
+        - canHelp
+
+    ResidentRequestsState:
+      type: object
+      properties:
+        currentDay:
+          type: integer
+        pendingCount:
+          type: integer
+        bufferMax:
+          type: integer
+        reputationDelta:
+          type: number
+        requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResidentRequest"
+      required:
+        - currentDay
+        - pendingCount
+        - bufferMax
+        - reputationDelta
+        - requests
+
+    ProcessResidentRequestRequest:
+      type: object
+      properties:
+        requestId:
+          type: string
+        action:
+          type: string
+          enum: [help, decline]
+      required:
+        - requestId
+        - action
 
     Agent:
       type: object
@@ -344,6 +980,12 @@ components:
           type: string
         employerId:
           type: ["integer", "null"]
+        isRetired:
+          type: boolean
+        careerLevel:
+          type: integer
+        jobTitle:
+          type: string
       required:
         - id
         - name
@@ -368,12 +1010,36 @@ components:
           type: number
         sleep:
           type: number
+        education:
+          type: number
+        entertainment:
+          type: number
+        faith:
+          type: number
+        housingSafety:
+          type: number
+        financialSafety:
+          type: number
+        physicalSafety:
+          type: number
+        socialRating:
+          type: number
+        wellbeing:
+          type: number
       required:
         - hunger
         - comfort
         - social
         - health
         - sleep
+        - education
+        - entertainment
+        - faith
+        - housingSafety
+        - financialSafety
+        - physicalSafety
+        - socialRating
+        - wellbeing
 
     AgentRelation:
       type: object
@@ -396,11 +1062,13 @@ components:
           type: integer
         event:
           type: string
-          enum: [hired, fired, retired]
+          enum: [hired, fired, retired, quit, promoted]
         businessId:
           type: ["integer", "null"]
         businessName:
           type: ["string", "null"]
+        duration:
+          type: integer
       required:
         - tick
         - event
@@ -431,12 +1099,42 @@ components:
               items:
                 $ref: "#/components/schemas/JobHistoryEntry"
               description: Most recent 20 job events for this agent
+            employerName:
+              type: ["string", "null"]
+            jobStartTick:
+              type: ["integer", "null"]
+            jobTenure:
+              type: ["integer", "null"]
+            totalJobs:
+              type: integer
+            promotions:
+              type: integer
+            careerLevel:
+              type: integer
+            ambition:
+              type: number
+            targetCareerLevel:
+              type: integer
+            strength:
+              type: number
+            intelligence:
+              type: number
           required:
             - needs
             - relations
             - recentActions
             - isRetired
             - jobHistory
+            - employerName
+            - jobStartTick
+            - jobTenure
+            - totalJobs
+            - promotions
+            - careerLevel
+            - ambition
+            - targetCareerLevel
+            - strength
+            - intelligence
 
     AgentListResponse:
       type: object
@@ -475,6 +1173,8 @@ components:
           type: number
         employeeCount:
           type: integer
+        maxEmployees:
+          type: integer
         ownerId:
           type: ["integer", "null"]
         firedThisTick:
@@ -483,6 +1183,8 @@ components:
         hiredThisTick:
           type: integer
           description: Number of employees hired during the last simulation tick
+        productivityLevel:
+          type: integer
       required:
         - id
         - name
@@ -492,6 +1194,7 @@ components:
         - employeeCount
         - firedThisTick
         - hiredThisTick
+        - productivityLevel
 
     Good:
       type: object
@@ -537,6 +1240,16 @@ components:
         pensionRate:
           type: number
           description: Pension as a fraction of baseSalary paid to retirees per tick (0.0 - 1.0)
+        totalPublicServicesPaid:
+          type: number
+        totalGrantsPaid:
+          type: number
+        grantsIssuedLastDay:
+          type: integer
+        unemploymentRatePct:
+          type: number
+        grantThresholdPct:
+          type: number
       required:
         - budget
         - totalTaxCollected
@@ -545,6 +1258,11 @@ components:
         - taxRate
         - subsidyAmount
         - pensionRate
+        - totalPublicServicesPaid
+        - totalGrantsPaid
+        - grantsIssuedLastDay
+        - unemploymentRatePct
+        - grantThresholdPct
 
     SimConfig:
       type: object
@@ -690,6 +1408,10 @@ components:
           type: integer
         deathsLastTick:
           type: integer
+        immigrantsLastTick:
+          type: integer
+        emigrantsLastTick:
+          type: integer
         profitableBusinesses:
           type: integer
         unprofitableBusinesses:
@@ -713,6 +1435,8 @@ components:
         - gdp
         - birthsLastTick
         - deathsLastTick
+        - immigrantsLastTick
+        - emigrantsLastTick
         - profitableBusinesses
         - unprofitableBusinesses
         - marketBalance

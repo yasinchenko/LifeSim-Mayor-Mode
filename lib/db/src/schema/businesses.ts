@@ -1,9 +1,9 @@
-import { pgTable, serial, text, integer, real } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const businessesTable = pgTable("businesses", {
-  id: serial("id").primaryKey(),
+export const businessesTable = sqliteTable("businesses", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   type: text("type").notNull(),
   balance: real("balance").notNull().default(1000),
@@ -12,8 +12,8 @@ export const businessesTable = pgTable("businesses", {
   productivityLevel: integer("productivity_level").notNull().default(0),
 });
 
-export const goodsTable = pgTable("goods", {
-  id: serial("id").primaryKey(),
+export const goodsTable = sqliteTable("goods", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   businessId: integer("business_id").references(() => businessesTable.id, { onDelete: "cascade" }),
   basePrice: real("base_price").notNull().default(10),

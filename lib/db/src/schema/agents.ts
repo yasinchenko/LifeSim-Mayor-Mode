@@ -1,9 +1,9 @@
-import { pgTable, serial, text, integer, real, boolean, timestamp } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const agentsTable = pgTable("agents", {
-  id: serial("id").primaryKey(),
+export const agentsTable = sqliteTable("agents", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   gender: text("gender").notNull(),
   age: integer("age").notNull(),
@@ -13,7 +13,7 @@ export const agentsTable = pgTable("agents", {
   socialization: real("socialization").notNull().default(50),
   currentAction: text("current_action").notNull().default("idle"),
   employerId: integer("employer_id"),
-  isRetired: boolean("is_retired").notNull().default(false),
+  isRetired: integer("is_retired", { mode: "boolean" }).notNull().default(false),
   jobHistory: text("job_history").notNull().default("[]"),
   locationX: real("location_x").notNull().default(0),
   locationY: real("location_y").notNull().default(0),
@@ -21,11 +21,11 @@ export const agentsTable = pgTable("agents", {
   ambition: real("ambition").notNull().default(50),
   strength: real("strength").notNull().default(50),
   intelligence: real("intelligence").notNull().default(50),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const needsTable = pgTable("needs", {
-  id: serial("id").primaryKey(),
+export const needsTable = sqliteTable("needs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   agentId: integer("agent_id").notNull().references(() => agentsTable.id, { onDelete: "cascade" }),
   hunger: real("hunger").notNull().default(80),
   comfort: real("comfort").notNull().default(80),
@@ -42,8 +42,8 @@ export const needsTable = pgTable("needs", {
   wellbeing: real("wellbeing").notNull().default(70),
 });
 
-export const relationsTable = pgTable("relations", {
-  id: serial("id").primaryKey(),
+export const relationsTable = sqliteTable("relations", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   agentIdA: integer("agent_id_a").notNull().references(() => agentsTable.id, { onDelete: "cascade" }),
   agentIdB: integer("agent_id_b").notNull().references(() => agentsTable.id, { onDelete: "cascade" }),
   friendshipLevel: real("friendship_level").notNull().default(50),
