@@ -382,12 +382,14 @@ export interface ResidentRequest {
   agentId: number;
   residentName: string;
   residentAge: number;
+  residentGender: string;
   district: string;
   category: ResidentRequestCategory;
   categoryLabel: string;
   problem: string;
   need?: string;
   helpCost: number;
+  declineReputationPenalty: number;
   createdTick: number;
   createdDay: number;
   canHelp: boolean;

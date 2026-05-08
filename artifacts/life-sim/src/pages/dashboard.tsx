@@ -12,6 +12,7 @@ import {
   useGetSimulationState,
   useGetStatsHistory,
   useGetStatsSummary,
+  useContinueSimulation,
   useIssueDailyDecision,
   useProcessResidentRequest,
   useStartSimulation,
@@ -64,7 +65,6 @@ import { useLanguage } from "@/contexts/language-context";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -74,6 +74,26 @@ const MAP_DAY_ASSET = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/assets/map
 const MAP_MORNING_ASSET = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/assets/maps/city-map-morning.webp`;
 const MAP_EVENING_ASSET = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/assets/maps/city-map-evening.webp`;
 const MAP_NIGHT_ASSET = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/assets/maps/city-map-night.webp`;
+const CITIZEN_CARD_BG = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/assets/citizens/citizen-card-bg.png`;
+const CITIZEN_PORTRAITS = {
+  male: {
+    elder: "old_man.png",
+    health: "doctor_man.png",
+    food: "shop_owner_man.png",
+    work: "worker_man.png",
+    finance: "business_man.png",
+    comfort: "office_man.png",
+    safety: "official_man.png",
+    fallback: ["young_man.png", "migrant_man.png", "office_man.png"],
+  },
+  female: {
+    elder: "old_woman.png",
+    food: "shop_seller_woman.png",
+    work: "taecher_woman.png",
+    finance: "official_woman.png",
+    fallback: ["young_woman.png", "official_woman.png", "shop_seller_woman.png"],
+  },
+} as const;
 
 type CivicCategory = "society" | "economy" | "government";
 
@@ -139,7 +159,7 @@ const SECTION_LINKS = [
   { href: "/agents", label: "Жители", icon: Users },
   { href: "/economy", label: "Экономика", icon: Briefcase },
   { href: "/government", label: "Государство", icon: Landmark },
-  { href: "/settings", label: "Партия", icon: Settings },
+  { href: "/simulation-settings", label: "Симуляция", icon: Settings },
 ];
 
 const SCENARIO_LABELS: Record<string, string> = {
@@ -211,6 +231,26 @@ function categoryFromRequest(request: ResidentRequest): CivicCategory {
   if (request.category === "finance" || request.category === "work" || request.category === "food") return "economy";
   if (request.category === "safety") return "government";
   return "society";
+}
+
+function getCitizenPortrait(request: ResidentRequest): string {
+  const gender = request.residentGender === "female" ? "female" : "male";
+  const assetsBase = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/assets/citizens`;
+  if (request.residentAge >= 65) {
+    return `${assetsBase}/${CITIZEN_PORTRAITS[gender].elder}`;
+  }
+  if (gender === "male") {
+    const portrait = CITIZEN_PORTRAITS.male[request.category] ?? CITIZEN_PORTRAITS.male.fallback[Math.abs(request.agentId) % CITIZEN_PORTRAITS.male.fallback.length];
+    return `${assetsBase}/${portrait}`;
+  }
+  const portrait = request.category === "food"
+    ? CITIZEN_PORTRAITS.female.food
+    : request.category === "work"
+      ? CITIZEN_PORTRAITS.female.work
+      : request.category === "finance" || request.category === "safety"
+        ? CITIZEN_PORTRAITS.female.finance
+        : CITIZEN_PORTRAITS.female.fallback[Math.abs(request.agentId) % CITIZEN_PORTRAITS.female.fallback.length];
+  return `${assetsBase}/${portrait}`;
 }
 
 function mapPhaseForHour(hour: number) {
@@ -335,6 +375,19 @@ export default function Dashboard() {
     },
   });
 
+  const continueMutation = useContinueSimulation({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getGetSimulationStateQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetResidentRequestsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetDailyDecisionsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetStatsSummaryQueryKey() });
+        toast.success("Игра продолжается");
+      },
+      onError: err => toast.error(`Не удалось продолжить игру: ${getApiErrorMessage(err)}`),
+    },
+  });
+
   useEffect(() => {
     const currentTick = state?.tick;
     if (currentTick !== undefined && prevTickRef.current !== undefined && prevTickRef.current !== currentTick) {
@@ -453,7 +506,11 @@ export default function Dashboard() {
 
       {ended && (
         <div className="absolute inset-0 z-20 pointer-events-none flex items-start justify-center pt-24 px-4">
-          <FinalReportCard state={state} summary={summary} chartData={chartData} />
+          <FinalReportCard
+            state={state}
+            isContinuing={continueMutation.isPending}
+            onContinue={() => continueMutation.mutate()}
+          />
         </div>
       )}
 
@@ -543,6 +600,14 @@ function GameTopBar({
       </div>
 
       <nav className="flex items-center justify-start lg:justify-end gap-2 overflow-x-auto">
+        <MetricsDialog state={state} summary={summary} chartData={chartData} running={running} />
+        <Link
+          href="/simulation-settings"
+          className="inline-flex items-center gap-2 rounded border border-border/70 bg-black/28 px-3 py-2 text-xs font-medium text-foreground backdrop-blur hover:border-primary/50 hover:text-primary whitespace-nowrap"
+        >
+          <Settings className="w-3.5 h-3.5" />
+          {t.menu.simulationSettings}
+        </Link>
         <button
           type="button"
           onClick={onOpenMenu}
@@ -551,7 +616,6 @@ function GameTopBar({
           <Home className="w-3.5 h-3.5" />
           {t.dashboard.menu}
         </button>
-        <MetricsDialog state={state} summary={summary} chartData={chartData} running={running} />
       </nav>
     </header>
   );
@@ -605,11 +669,11 @@ function GameMenuOverlay({
             {isSaving ? t.game.saving : t.game.save}
           </button>
           <Link
-            href="/settings"
+            href="/simulation-settings"
             className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground hover:opacity-90"
           >
             <Settings className="w-4 h-4" />
-            {t.menu.settings}
+            {t.menu.simulationSettings}
           </Link>
           <Link
             href="/"
@@ -760,8 +824,9 @@ function CityMapStage({
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{selected.detail}</p>
           </div>
           <div className="ml-auto text-right shrink-0">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Индекс</p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Индекс района</p>
             <p className="text-2xl font-semibold tabular-nums" style={{ color: toneColor(toneFor(selected.health)) }}>{selected.health}</p>
+            <p className="text-[10px] text-muted-foreground max-w-[150px]">сводная оценка состояния, 0-100</p>
           </div>
         </div>
       </div>
@@ -838,7 +903,7 @@ function RightRequestsPanel({
   const activeDemandCategory = categoryStyle(categoryFromSide(activeDemand?.side));
 
   return (
-    <aside className="min-h-0 rounded border border-border/70 bg-black/30 backdrop-blur p-3 space-y-3 xl:overflow-y-auto">
+    <aside className="signals-scrollbar min-h-0 rounded border border-border/70 bg-black/30 backdrop-blur p-3 space-y-3 xl:overflow-y-auto">
       <PanelTitle icon={Inbox} title="Обращения и сигналы" badge={String(pending)} />
 
       {activeDemand && (
@@ -943,9 +1008,6 @@ function MetricsDialog({
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-background/98">
         <DialogHeader>
           <DialogTitle>{t.dashboard.detailedMetrics}</DialogTitle>
-          <DialogDescription>
-            {t.dashboard.detailedMetricsDescription}
-          </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -979,48 +1041,68 @@ function MetricsDialog({
 
 function FinalReportCard({
   state,
-  summary,
-  chartData,
+  isContinuing,
+  onContinue,
 }: {
   state: SimulationState;
-  summary?: StatsSummary;
-  chartData: ChartDatum[];
+  isContinuing: boolean;
+  onContinue: () => void;
 }) {
-  const first = chartData[0];
-  const last = chartData[chartData.length - 1];
-  const popDelta = first && last ? last.population - first.population : 0;
-  const score = clamp(
-    state.goalProgress * 0.45 +
-    ((state.reputationResidents + state.reputationBusiness + state.reputationGovernment) / 3) * 0.35 +
-    Math.max(0, 100 - state.unemploymentRate) * 0.2
-  );
+  const isVictory = state.gameStatus === "victory";
+  const averageReputation = Math.round((
+    state.reputationResidents +
+    state.reputationBusiness +
+    state.reputationGovernment
+  ) / 3);
+  const reason = state.gameOutcomeReason ?? (isVictory
+    ? "Цели сценария выполнены."
+    : "Цель сценария не выполнена.");
+  const details = isVictory
+    ? "Город достиг ключевых условий сценария. Можно начать новую партию или продолжить развивать этот город свободно."
+    : null;
 
   return (
     <div className="pointer-events-auto w-full max-w-3xl rounded border border-primary/35 bg-black/82 backdrop-blur-xl p-5 shadow-2xl">
       <div className="flex items-start gap-3">
-        <div className="w-11 h-11 rounded bg-primary/15 text-primary grid place-items-center shrink-0">
-          {state.gameStatus === "victory" ? <Trophy className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
+        <div className={cn(
+          "w-11 h-11 rounded grid place-items-center shrink-0",
+          isVictory ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"
+        )}>
+          {isVictory ? <Trophy className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
         </div>
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Финальный отчёт</p>
-          <h2 className="text-xl font-semibold">{state.gameStatus === "victory" ? "Мандат выполнен" : "Мандат провален"} · рейтинг {score}</h2>
-          <p className="text-xs text-muted-foreground mt-1">{state.gameOutcomeReason ?? "Партия завершена."}</p>
+          <h2 className="text-2xl font-semibold mt-1">{isVictory ? "Победа" : "Провал"}</h2>
+          <p className="text-sm font-medium mt-2">{reason}</p>
+          {details && <p className="text-xs text-muted-foreground mt-1">{details}</p>}
         </div>
-        <Link href="/settings" className="ml-auto inline-flex items-center gap-2 rounded bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
+      </div>
+
+      <div className="grid sm:grid-cols-4 gap-3 mt-5">
+        <ReportTile label="Дней сессии" value={String(state.gameDay)} />
+        <ReportTile label="Выполнение цели" value={`${state.goalProgress}%`} />
+        <ReportTile label="Население" value={state.population.toLocaleString("ru-RU")} />
+        <ReportTile label="Средняя репутация" value={`${averageReputation}/100`} />
+      </div>
+
+      <div className="flex flex-col sm:flex-row justify-end gap-2 mt-5 pt-4 border-t border-border/60">
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={isContinuing}
+          className="inline-flex items-center justify-center gap-2 rounded border border-primary/45 bg-primary/10 px-4 py-2 text-xs font-medium text-primary hover:bg-primary/15 disabled:opacity-60"
+        >
+          <Play className="w-3.5 h-3.5" />
+          {isContinuing ? "Продолжаем..." : "Продолжить игру"}
+        </button>
+        <Link href="/simulation-settings" className="inline-flex items-center justify-center gap-2 rounded bg-primary px-4 py-2 text-xs font-medium text-primary-foreground">
           <Flag className="w-3.5 h-3.5" />
           Новая партия
         </Link>
       </div>
-      <div className="grid sm:grid-cols-4 gap-3 mt-4">
-        <ReportTile label="Дней" value={String(state.gameDay)} />
-        <ReportTile label="Цель" value={`${state.goalProgress}%`} />
-        <ReportTile label="Население" value={`${popDelta >= 0 ? "+" : ""}${popDelta}`} />
-        <ReportTile label="Лучший житель" value={summary?.happiestAgent ?? "—"} />
-      </div>
     </div>
   );
 }
-
 function buildDistricts(
   state: SimulationState,
   summary: StatsSummary | undefined,
@@ -1159,38 +1241,60 @@ function RequestCard({
   onProcess: (requestId: string, action: "help" | "decline") => void;
 }) {
   const requestCategory = categoryStyle(categoryFromRequest(request));
+  const portrait = getCitizenPortrait(request);
   return (
-    <div className="rounded border p-3" style={{ borderColor: requestCategory.border, background: requestCategory.soft }}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold truncate">{request.residentName}, {request.residentAge}</p>
-          <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-            <MapPin className="w-3 h-3" />
-            {request.district}
-          </p>
+    <div
+      className="rounded border p-2.5 overflow-hidden shadow-[0_1px_0_rgba(255,255,255,0.16)_inset,0_10px_24px_rgba(0,0,0,0.24)]"
+      style={{
+        borderColor: "rgba(132, 93, 48, 0.78)",
+        backgroundColor: "#d9b979",
+        backgroundImage: `linear-gradient(135deg, rgba(255, 241, 190, 0.16), rgba(86, 54, 23, 0.10)), url(${CITIZEN_CARD_BG})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <div className="flex items-start gap-2.5">
+        <img
+          src={portrait}
+          alt=""
+          className="h-16 w-12 shrink-0 rounded-sm border border-[#5e3d1d]/60 object-cover bg-[#b78e4d] shadow-sm"
+          loading="lazy"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold truncate text-[#2c2114]">{request.residentName}, {request.residentAge}</p>
+              <p className="text-[10px] text-[#5a4630] flex items-center gap-1 mt-0.5">
+                <MapPin className="w-3 h-3" />
+                {request.district}
+              </p>
+            </div>
+            <span className="text-[9px] rounded bg-[#2e3a29]/82 px-2 py-0.5 font-medium shrink-0 text-[#aee6c4]">
+              {requestCategory.label} / {request.categoryLabel}
+            </span>
+          </div>
+          <p className="text-[11px] text-[#4a3825] leading-relaxed mt-2 line-clamp-2">{request.problem}</p>
         </div>
-        <span className="text-[9px] rounded bg-white/8 px-2 py-0.5 font-medium shrink-0" style={{ color: requestCategory.text }}>
-          {requestCategory.label} / {request.categoryLabel}
-        </span>
       </div>
-      <p className="text-[11px] text-muted-foreground leading-relaxed mt-2 line-clamp-3">{request.problem}</p>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
-        <div className="rounded border border-white/10 bg-black/16 px-2 py-1">
-          <span className="text-muted-foreground">Помочь</span>
-          <span className="block font-semibold tabular-nums" style={{ color: requestCategory.text }}>
+      <div className="mt-2.5 grid grid-cols-2 gap-2 text-[10px]">
+        <div className="rounded border border-[#6b4922]/24 bg-[#3b2a18]/12 px-2 py-1">
+          <span className="text-[#5a4630]">Помочь</span>
+          <span className="block font-semibold tabular-nums text-[#12684f]">
             Бюджет {Math.round(request.helpCost).toLocaleString()}
           </span>
         </div>
-        <div className="rounded border border-white/10 bg-black/16 px-2 py-1">
-          <span className="text-muted-foreground">Отказать</span>
-          <span className="block font-semibold text-[hsl(351,72%,78%)]">0, риск доверия</span>
+        <div className="rounded border border-[#6b4922]/24 bg-[#3b2a18]/12 px-2 py-1">
+          <span className="text-[#5a4630]">Отказать</span>
+          <span className="block font-semibold text-[#8e2630]">
+            -{request.declineReputationPenalty.toFixed(1).replace(".", ",")} доверия
+          </span>
         </div>
       </div>
-      <div className="flex items-center gap-2 mt-3">
+      <div className="flex items-center gap-2 mt-2.5">
         <button
           onClick={() => onProcess(request.id, "help")}
           disabled={!request.canHelp || disabled}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded bg-primary px-2 py-1.5 text-[11px] font-medium text-primary-foreground disabled:opacity-50"
+          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded bg-[#9fbf91] px-2 py-1.5 text-[11px] font-medium text-[#20301f] shadow-sm hover:bg-[#adca9f] disabled:opacity-50"
         >
           <HandHeart className="w-3 h-3" />
           Помочь
@@ -1198,7 +1302,7 @@ function RequestCard({
         <button
           onClick={() => onProcess(request.id, "decline")}
           disabled={disabled}
-          className="inline-flex items-center justify-center rounded bg-white/8 px-2 py-1.5 text-muted-foreground disabled:opacity-50"
+          className="inline-flex items-center justify-center rounded bg-[#3b2a18]/18 px-2 py-1.5 text-[#5a4630] disabled:opacity-50"
           aria-label="Отказать"
         >
           <XCircle className="w-3.5 h-3.5" />

@@ -12,6 +12,7 @@ type Dictionary = {
     continueGame: string;
     loadGame: string;
     settings: string;
+    simulationSettings: string;
     exit: string;
     exitHint: string;
     scenario: string;
@@ -19,7 +20,6 @@ type Dictionary = {
     dayLimit: string;
     start: string;
     saves: string;
-    noSaves: string;
     load: string;
     delete: string;
     saveNow: string;
@@ -34,6 +34,7 @@ type Dictionary = {
     economy: string;
     government: string;
     settings: string;
+    simulationSettings: string;
   };
   game: {
     save: string;
@@ -95,6 +96,7 @@ const DICTIONARY: Record<Language, Dictionary> = {
       continueGame: "Продолжить",
       loadGame: "Загрузить",
       settings: "Настройки",
+      simulationSettings: "Параметры города",
       exit: "Выход",
       exitHint: "В web-версии можно закрыть вкладку или окно приложения.",
       scenario: "Сценарий",
@@ -102,11 +104,10 @@ const DICTIONARY: Record<Language, Dictionary> = {
       dayLimit: "Лимит дней",
       start: "Начать",
       saves: "Сохранения",
-      noSaves: "Сохранений пока нет",
       load: "Загрузить",
       delete: "Удалить",
       saveNow: "Сохранить текущую партию",
-      quickSave: "Быстрое сохранение",
+      quickSave: "Сохранение",
       language: "Язык",
       back: "Назад",
       loading: "Загрузка...",
@@ -116,7 +117,8 @@ const DICTIONARY: Record<Language, Dictionary> = {
       residents: "Жители",
       economy: "Экономика",
       government: "Государство",
-      settings: "Настройки партии",
+      settings: "Настройки игры",
+      simulationSettings: "Параметры города",
     },
     game: {
       save: "Сохранить",
@@ -176,6 +178,7 @@ const DICTIONARY: Record<Language, Dictionary> = {
       continueGame: "Continue",
       loadGame: "Load",
       settings: "Settings",
+      simulationSettings: "City settings",
       exit: "Exit",
       exitHint: "In the web version you can close the tab or app window.",
       scenario: "Scenario",
@@ -183,11 +186,10 @@ const DICTIONARY: Record<Language, Dictionary> = {
       dayLimit: "Day limit",
       start: "Start",
       saves: "Saves",
-      noSaves: "No saves yet",
       load: "Load",
       delete: "Delete",
       saveNow: "Save current game",
-      quickSave: "Quick save",
+      quickSave: "Save",
       language: "Language",
       back: "Back",
       loading: "Loading...",
@@ -198,6 +200,7 @@ const DICTIONARY: Record<Language, Dictionary> = {
       economy: "Economy",
       government: "Government",
       settings: "Game settings",
+      simulationSettings: "City settings",
     },
     game: {
       save: "Save",

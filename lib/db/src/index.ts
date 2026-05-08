@@ -126,6 +126,7 @@ function bootstrapSchema(): void {
       day_limit INTEGER NOT NULL DEFAULT 32,
       game_status TEXT NOT NULL DEFAULT 'active',
       game_outcome_reason TEXT,
+      postgame_mode INTEGER NOT NULL DEFAULT 0,
       action_points_remaining INTEGER NOT NULL DEFAULT 3,
       action_points_max INTEGER NOT NULL DEFAULT 3,
       government_budget REAL NOT NULL DEFAULT 10000,
@@ -219,6 +220,7 @@ function bootstrapSchema(): void {
   addSimStateColumn("day_limit", "day_limit INTEGER NOT NULL DEFAULT 32");
   addSimStateColumn("game_status", "game_status TEXT NOT NULL DEFAULT 'active'");
   addSimStateColumn("game_outcome_reason", "game_outcome_reason TEXT");
+  addSimStateColumn("postgame_mode", "postgame_mode INTEGER NOT NULL DEFAULT 0");
   addSimStateColumn("action_points_remaining", "action_points_remaining INTEGER NOT NULL DEFAULT 3");
   addSimStateColumn("action_points_max", "action_points_max INTEGER NOT NULL DEFAULT 3");
 }

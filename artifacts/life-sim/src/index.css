@@ -256,6 +256,25 @@
     color: hsl(var(--muted-foreground));
     pointer-events: none;
   }
+  .signals-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(173 34% 36% / 0.72) hsl(218 18% 18% / 0.72);
+  }
+  .signals-scrollbar::-webkit-scrollbar {
+    width: 10px;
+  }
+  .signals-scrollbar::-webkit-scrollbar-track {
+    background: hsl(218 18% 18% / 0.72);
+    border-radius: 999px;
+  }
+  .signals-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(173 34% 36% / 0.72);
+    border: 2px solid hsl(218 18% 18% / 0.72);
+    border-radius: 999px;
+  }
+  .signals-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(173 38% 44% / 0.8);
+  }
   .toggle-elevate::before,
   .toggle-elevate-2::before {
     content: "";

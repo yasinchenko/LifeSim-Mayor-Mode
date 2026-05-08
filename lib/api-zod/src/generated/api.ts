@@ -89,6 +89,43 @@ export const StopSimulationResponse = zod.object({
 });
 
 /**
+ * @summary Continue after a final outcome
+ */
+export const ContinueSimulationResponse = zod.object({
+  tick: zod.number(),
+  running: zod.boolean(),
+  gameHour: zod.number(),
+  gameDay: zod.number(),
+  scenarioType: zod.enum(["balanced", "crisis", "growth", "stability"]),
+  goalType: zod.enum([
+    "balanced",
+    "crisis_recovery",
+    "economic_growth",
+    "market_growth",
+    "social_stability",
+    "force_order",
+    "corruption_network",
+  ]),
+  dayLimit: zod.number(),
+  daysRemaining: zod.number(),
+  gameStatus: zod.enum(["active", "victory", "defeat"]),
+  gameOutcomeReason: zod.string().nullable(),
+  goalProgress: zod.number(),
+  reputationResidents: zod.number(),
+  reputationBusiness: zod.number(),
+  reputationGovernment: zod.number(),
+  actionPointsRemaining: zod.number(),
+  actionPointsMax: zod.number(),
+  population: zod.number(),
+  avgMood: zod.number(),
+  gdp: zod.number(),
+  unemploymentRate: zod.number(),
+  governmentBudget: zod.number(),
+  totalTaxCollected: zod.number(),
+  avgWealth: zod.number(),
+});
+
+/**
  * @summary Reset the simulation and generate a new population
  */
 export const ResetSimulationResponse = zod.object({
@@ -855,6 +892,7 @@ export const GetResidentRequestsResponse = zod.object({
       agentId: zod.number(),
       residentName: zod.string(),
       residentAge: zod.number(),
+      residentGender: zod.string(),
       district: zod.string(),
       category: zod.enum([
         "finance",
@@ -868,6 +906,7 @@ export const GetResidentRequestsResponse = zod.object({
       problem: zod.string(),
       need: zod.string().optional(),
       helpCost: zod.number(),
+      declineReputationPenalty: zod.number(),
       createdTick: zod.number(),
       createdDay: zod.number(),
       canHelp: zod.boolean(),
@@ -894,6 +933,7 @@ export const ProcessResidentRequestResponse = zod.object({
       agentId: zod.number(),
       residentName: zod.string(),
       residentAge: zod.number(),
+      residentGender: zod.string(),
       district: zod.string(),
       category: zod.enum([
         "finance",
@@ -907,6 +947,7 @@ export const ProcessResidentRequestResponse = zod.object({
       problem: zod.string(),
       need: zod.string().optional(),
       helpCost: zod.number(),
+      declineReputationPenalty: zod.number(),
       createdTick: zod.number(),
       createdDay: zod.number(),
       canHelp: zod.boolean(),

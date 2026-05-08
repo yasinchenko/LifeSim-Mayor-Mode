@@ -23,6 +23,12 @@ router.post("/simulation/stop", async (req, res): Promise<void> => {
   res.json(StopSimulationResponse.parse(state));
 });
 
+router.post("/simulation/continue", async (_req, res): Promise<void> => {
+  await simulationEngine.continueAfterOutcome();
+  const state = simulationEngine.getSimulationState();
+  res.json(GetSimulationStateResponse.parse(state));
+});
+
 router.post("/simulation/reset", async (req, res): Promise<void> => {
   // Run reset in background so the HTTP request returns immediately.
   // The client polls /api/simulation/state to see when reset finishes.

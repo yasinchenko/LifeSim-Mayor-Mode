@@ -286,6 +286,87 @@ export const useStopSimulation = <
 };
 
 /**
+ * @summary Continue after a final outcome
+ */
+export const getContinueSimulationUrl = () => {
+  return `/api/simulation/continue`;
+};
+
+export const continueSimulation = async (
+  options?: RequestInit,
+): Promise<SimulationState> => {
+  return customFetch<SimulationState>(getContinueSimulationUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getContinueSimulationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof continueSimulation>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof continueSimulation>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["continueSimulation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof continueSimulation>>,
+    void
+  > = () => {
+    return continueSimulation(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ContinueSimulationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof continueSimulation>>
+>;
+
+export type ContinueSimulationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Continue after a final outcome
+ */
+export const useContinueSimulation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof continueSimulation>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof continueSimulation>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getContinueSimulationMutationOptions(options));
+};
+
+/**
  * @summary Reset the simulation and generate a new population
  */
 export const getResetSimulationUrl = () => {

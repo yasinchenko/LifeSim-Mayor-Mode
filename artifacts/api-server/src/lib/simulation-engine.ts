@@ -132,6 +132,7 @@ interface SimState {
   dayLimit: number;
   gameStatus: GameStatus;
   gameOutcomeReason: string | null;
+  postgameMode: boolean;
   actionPointsRemaining: number;
   actionPointsMax: number;
   governmentBudget: number;
@@ -296,12 +297,14 @@ interface ResidentRequestRecord {
   agentId: number;
   residentName: string;
   residentAge: number;
+  residentGender: string;
   district: string;
   category: ResidentRequestCategory;
   categoryLabel: string;
   problem: string;
   need?: keyof AgentState["needs"];
   helpCost: number;
+  declineReputationPenalty: number;
   createdTick: number;
   createdDay: number;
 }
@@ -1430,6 +1433,7 @@ class SimulationEngine {
     dayLimit: DEFAULT_GAME_OPTIONS.dayLimit,
     gameStatus: "active",
     gameOutcomeReason: null,
+    postgameMode: false,
     actionPointsRemaining: DAILY_ACTION_POINTS_MAX,
     actionPointsMax: DAILY_ACTION_POINTS_MAX,
     governmentBudget: 10000,
@@ -1537,6 +1541,7 @@ class SimulationEngine {
         dayLimit: row.dayLimit ?? DEFAULT_GAME_OPTIONS.dayLimit,
         gameStatus: normalizeGameStatus(row.gameStatus),
         gameOutcomeReason: row.gameOutcomeReason ?? null,
+        postgameMode: row.postgameMode ?? false,
         actionPointsRemaining: Math.min(row.actionPointsRemaining ?? DAILY_ACTION_POINTS_MAX, DAILY_ACTION_POINTS_MAX),
         actionPointsMax: DAILY_ACTION_POINTS_MAX,
         governmentBudget: row.governmentBudget,
@@ -1556,6 +1561,7 @@ class SimulationEngine {
         dayLimit: DEFAULT_GAME_OPTIONS.dayLimit,
         gameStatus: "active",
         gameOutcomeReason: null,
+        postgameMode: false,
         actionPointsRemaining: DAILY_ACTION_POINTS_MAX,
         actionPointsMax: DAILY_ACTION_POINTS_MAX,
         governmentBudget: 10000,
@@ -2187,6 +2193,22 @@ class SimulationEngine {
     logger.info("Simulation started");
   }
 
+  async continueAfterOutcome(): Promise<void> {
+    const wasRunning = this.state.running;
+    if (this.state.gameStatus !== "active") {
+      this.state.gameStatus = "active";
+      this.state.gameOutcomeReason = null;
+      this.state.postgameMode = true;
+      this.state.dayLimit = Math.max(this.state.dayLimit, this.state.gameDay + DEFAULT_GAME_OPTIONS.dayLimit);
+    }
+    this.state.running = true;
+    await this.persistState();
+    if (!wasRunning) {
+      this.startTimer();
+    }
+    logger.info("Simulation continued after final outcome");
+  }
+
   async stop(): Promise<void> {
     if (!this.state.running) return;
     this.state.running = false;
@@ -2250,6 +2272,7 @@ class SimulationEngine {
       dayLimit: gameOptions.dayLimit,
       gameStatus: "active",
       gameOutcomeReason: null,
+      postgameMode: false,
       actionPointsRemaining: DAILY_ACTION_POINTS_MAX,
       actionPointsMax: DAILY_ACTION_POINTS_MAX,
       governmentBudget: this.getScenarioBudget(gameOptions.scenarioType),
@@ -4999,6 +5022,7 @@ class SimulationEngine {
         dayLimit: this.state.dayLimit,
         gameStatus: this.state.gameStatus,
         gameOutcomeReason: this.state.gameOutcomeReason,
+        postgameMode: this.state.postgameMode,
         actionPointsRemaining: this.state.actionPointsRemaining,
         actionPointsMax: this.state.actionPointsMax,
         governmentBudget: this.state.governmentBudget,
@@ -5137,6 +5161,17 @@ class SimulationEngine {
       progress = Math.min(progress, 0.96);
     }
 
+    if (this.state.postgameMode) {
+      return {
+        status: "active",
+        reason: null,
+        progress: Math.round(progress * 100),
+        residentsScore: Math.round(residentsScore),
+        businessScore: Math.round(businessScore),
+        governmentScore: Math.round(governmentScore),
+      };
+    }
+
     if (victory) {
       return {
         status: "victory",
@@ -5205,6 +5240,7 @@ class SimulationEngine {
     if (this.state.gameStatus === "active" && evaluation.status !== "active") {
       this.state.gameStatus = evaluation.status;
       this.state.gameOutcomeReason = evaluation.reason;
+      this.state.postgameMode = false;
       this.state.running = false;
       if (this.timer !== null) {
         clearTimeout(this.timer);
@@ -5725,12 +5761,14 @@ class SimulationEngine {
         agentId: agent.id,
         residentName: agent.name,
         residentAge: agent.age,
+        residentGender: agent.gender,
         district: this.getResidentDistrict(agent.id),
         category,
         categoryLabel: RESIDENT_REQUEST_CATEGORY_LABELS[category],
         problem,
         need,
         helpCost: randInt(10, 50),
+        declineReputationPenalty: Math.round(rand(0.1, 0.5) * 10) / 10,
         createdTick: this.state.tick,
         createdDay: this.state.gameDay,
       });
@@ -5809,6 +5847,7 @@ class SimulationEngine {
       reputationDelta: Math.round(this.residentRequestReputationDelta * 10) / 10,
       requests: this.residentRequests.map(request => ({
         ...request,
+        residentGender: request.residentGender ?? this.agents.get(request.agentId)?.gender ?? "male",
         canHelp: this.state.gameStatus === "active" && this.state.governmentBudget >= request.helpCost,
       })),
     };
@@ -5882,7 +5921,7 @@ class SimulationEngine {
         this.syncResidentRequestAgent(agent);
       }
     } else if (action === "decline") {
-      this.residentRequestReputationDelta = clamp(this.residentRequestReputationDelta - rand(0.1, 0.3), -5, 5);
+      this.residentRequestReputationDelta = clamp(this.residentRequestReputationDelta - request.declineReputationPenalty, -5, 5);
       if (agent) {
         agent.mood = clamp(agent.mood - rand(2, 5));
         agent.needs.wellbeing = clamp(agent.needs.wellbeing - rand(1, 3));

@@ -10,7 +10,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     "/agents": t.layout.residents,
     "/economy": t.layout.economy,
     "/government": t.layout.government,
-    "/settings": t.layout.settings,
+    "/simulation-settings": t.layout.simulationSettings,
   };
   const title = sectionTitles[Object.keys(sectionTitles).find(path => location.startsWith(path)) ?? ""] ?? "LifeSim";
 

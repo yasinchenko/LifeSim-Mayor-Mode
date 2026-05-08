@@ -23,21 +23,22 @@ export default function GovernmentPage() {
   const unemploymentHigh = gov ? gov.unemploymentRatePct >= gov.grantThresholdPct : false;
 
   return (
-    <div className="p-6 space-y-6 max-w-2xl">
+    <div className="p-4 xl:p-6 space-y-4 max-w-none h-[calc(100vh-58px)] overflow-hidden flex flex-col">
       <div>
         <h1 className="text-base font-semibold text-foreground">Государство</h1>
         <p className="text-xs text-muted-foreground mt-0.5">Бюджет, налоги, субсидии и гранты</p>
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid sm:grid-cols-3 2xl:grid-cols-6 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-24 bg-card border border-card-border rounded animate-pulse" />
           ))}
         </div>
       ) : gov ? (
-        <>
-          <div className="grid grid-cols-2 gap-3">
+        <div className="grid xl:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)] gap-4 min-h-0">
+          <div className="space-y-4 min-w-0">
+          <div className="grid sm:grid-cols-3 2xl:grid-cols-6 gap-3">
             <StatCard
               label="Бюджет"
               value={gov.budget.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -125,7 +126,9 @@ export default function GovernmentPage() {
               При безработице выше {gov.grantThresholdPct}% государство выдаёт гранты самым активным безработным агентам — они открывают кафе или сервисные предприятия и сразу трудоустраиваются.
             </p>
           </div>
+          </div>
 
+          <div className="grid md:grid-cols-2 xl:grid-cols-1 gap-4 content-start min-w-0">
           <div className="bg-card border border-card-border rounded p-4 space-y-4">
             <h2 className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">Параметры</h2>
             <div className="grid grid-cols-2 gap-4 text-xs">
@@ -208,7 +211,8 @@ export default function GovernmentPage() {
               </div>
             </div>
           </div>
-        </>
+          </div>
+        </div>
       ) : (
         <p className="text-sm text-muted-foreground">Нет данных</p>
       )}

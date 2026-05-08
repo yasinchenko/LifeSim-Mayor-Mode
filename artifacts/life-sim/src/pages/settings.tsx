@@ -13,9 +13,8 @@ import {
   useUpdateConfig,
 } from "@workspace/api-client-react";
 import { toast } from "sonner";
-import { Flag, Languages, Play, RotateCcw, Save, Square } from "lucide-react";
+import { Flag, Play, RotateCcw, Save, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useLanguage } from "@/contexts/language-context";
 
 function getApiErrorMessage(err: unknown): string {
   if (err && typeof err === "object") {
@@ -72,7 +71,6 @@ const GOALS = [
 export default function SettingsPage() {
   const qc = useQueryClient();
   const [, setLocation] = useLocation();
-  const { language, setLanguage, t } = useLanguage();
   const [values, setValues] = useState<Record<string, number>>({});
   const [dirty, setDirty] = useState(false);
   const [scenarioType, setScenarioType] = useState<(typeof SCENARIOS)[number]["value"]>("balanced");
@@ -179,35 +177,10 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-5 max-w-2xl">
+    <div className="w-full max-w-2xl mx-auto p-4 sm:p-6 space-y-5">
       <div>
-        <h1 className="text-base font-semibold text-foreground">Управление игрой</h1>
-        <p className="text-xs text-muted-foreground mt-0.5">Настройки симуляции, запуск и новая партия</p>
-      </div>
-
-      <div className="bg-card border border-card-border rounded p-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Languages className="w-4 h-4 text-primary" />
-          <div>
-            <h2 className="text-xs font-semibold text-foreground">{t.menu.language}</h2>
-            <p className="text-[10px] text-muted-foreground mt-0.5">RU / EN</p>
-          </div>
-        </div>
-        <div className="inline-flex items-center rounded border border-border bg-black/20 p-1">
-          {(["ru", "en"] as const).map(item => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setLanguage(item)}
-              className={cn(
-                "rounded px-3 py-1.5 text-xs font-semibold uppercase",
-                language === item ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
+        <h1 className="text-base font-semibold text-foreground">Параметры города</h1>
+        <p className="text-xs text-muted-foreground mt-0.5">Баланс движка, запуск и новая партия</p>
       </div>
 
       <div className="bg-card border border-card-border rounded p-4 space-y-4">

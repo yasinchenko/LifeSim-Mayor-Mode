@@ -31,7 +31,7 @@ function Router() {
         <Route path="/agents/:id" component={AgentDetailPage} />
         <Route path="/economy" component={EconomyPage} />
         <Route path="/government" component={GovernmentPage} />
-        <Route path="/settings" component={SettingsPage} />
+        <Route path="/simulation-settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

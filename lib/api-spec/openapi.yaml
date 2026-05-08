@@ -66,6 +66,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/SimulationState"
 
+  /simulation/continue:
+    post:
+      operationId: continueSimulation
+      tags: [simulation]
+      summary: Continue after a final outcome
+      responses:
+        "200":
+          description: Simulation continued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationState"
+
   /simulation/reset:
     post:
       operationId: resetSimulation
@@ -890,6 +903,8 @@ components:
           type: string
         residentAge:
           type: integer
+        residentGender:
+          type: string
         district:
           type: string
         category:
@@ -903,6 +918,8 @@ components:
           type: string
         helpCost:
           type: number
+        declineReputationPenalty:
+          type: number
         createdTick:
           type: integer
         createdDay:
@@ -914,11 +931,13 @@ components:
         - agentId
         - residentName
         - residentAge
+        - residentGender
         - district
         - category
         - categoryLabel
         - problem
         - helpCost
+        - declineReputationPenalty
         - createdTick
         - createdDay
         - canHelp

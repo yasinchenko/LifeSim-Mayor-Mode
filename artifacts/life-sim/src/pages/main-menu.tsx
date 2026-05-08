@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getGetSimulationStateQueryKey, useNewGame } from "@workspace/api-client-react";
@@ -75,8 +75,6 @@ export default function MainMenu() {
     },
   });
 
-  const latestSave = useMemo(() => savesQuery.data?.[0], [savesQuery.data]);
-
   const loadSlot = async (slotId: string) => {
     await loadSave(slotId);
     qc.invalidateQueries({ queryKey: getGetSimulationStateQueryKey() });
@@ -97,14 +95,14 @@ export default function MainMenu() {
 
       <main className="relative z-10 min-h-screen grid lg:grid-cols-[420px_1fr]">
         <section className="min-h-screen border-r border-white/10 bg-black/30 backdrop-blur p-5 sm:p-8 flex flex-col">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded border border-primary/35 bg-primary/15 text-primary grid place-items-center">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="w-11 h-11 rounded border border-primary/35 bg-primary/15 text-primary grid place-items-center shrink-0">
                 <Building2 className="w-6 h-6" />
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] uppercase tracking-widest text-primary">{t.menu.title}</p>
-                <h1 className="text-xl font-semibold truncate">{t.menu.subtitle}</h1>
+                <h1 className="text-lg font-semibold leading-tight">{t.menu.subtitle}</h1>
               </div>
             </div>
             <LanguageToggle language={language} setLanguage={setLanguage} />
@@ -118,26 +116,10 @@ export default function MainMenu() {
             <MenuButton icon={X} label={t.menu.exit} active={view === "exit"} onClick={() => setView("exit")} />
           </div>
 
-          <div className="mt-auto pt-6 text-[11px] text-muted-foreground">
-            {latestSave?.summary
-              ? `${t.menu.quickSave}: ${latestSave.summary.gameDay}d, ${latestSave.summary.goalProgress}%`
-              : t.menu.noSaves}
-          </div>
+          <div className="mt-auto" />
         </section>
 
         <section className="min-h-screen overflow-y-auto p-5 sm:p-8 lg:p-10">
-          {view === "root" && (
-            <MenuPanel title={t.menu.title} description={t.menu.subtitle}>
-              <button
-                onClick={() => setView("new")}
-                className="inline-flex items-center gap-2 rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-              >
-                <Play className="w-4 h-4" />
-                {t.menu.newGame}
-              </button>
-            </MenuPanel>
-          )}
-
           {view === "new" && (
             <MenuPanel title={t.menu.newGame} description={`${t.menu.scenario} / ${t.menu.goal}`}>
               <OptionGrid title={t.menu.scenario} items={labels.scenarios} value={scenarioType} onChange={value => setScenarioType(value as Scenario)} />
@@ -178,7 +160,6 @@ export default function MainMenu() {
                 {t.menu.saveNow}
               </button>
               {savesQuery.isLoading && <p className="text-sm text-muted-foreground">{t.menu.loading}</p>}
-              {!savesQuery.isLoading && savesQuery.data?.length === 0 && <p className="text-sm text-muted-foreground">{t.menu.noSaves}</p>}
               <div className="grid gap-2">
                 {savesQuery.data?.map(slot => (
                   <div key={slot.id} className="rounded border border-border/70 bg-black/32 p-3 flex items-center justify-between gap-3">
@@ -211,10 +192,6 @@ export default function MainMenu() {
           {view === "settings" && (
             <MenuPanel title={t.menu.settings} description={t.menu.language}>
               <LanguageToggle language={language} setLanguage={setLanguage} large />
-              <button onClick={() => setLocation("/settings")} className="inline-flex w-fit items-center gap-2 rounded bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground border border-border">
-                <Settings className="w-4 h-4" />
-                {t.menu.settings}
-              </button>
             </MenuPanel>
           )}
 
@@ -234,7 +211,7 @@ export default function MainMenu() {
 
 function LanguageToggle({ language, setLanguage, large = false }: { language: Language; setLanguage: (language: Language) => void; large?: boolean }) {
   return (
-    <div className={cn("inline-flex items-center rounded border border-border bg-black/28 p-1", large && "w-fit")}>
+    <div className={cn("inline-flex shrink-0 items-center rounded border border-border bg-black/28 p-1", large && "w-fit")}>
       <Languages className="w-3.5 h-3.5 mx-2 text-muted-foreground" />
       {(["ru", "en"] as const).map(item => (
         <button
