@@ -38,12 +38,14 @@ import {
   Flag,
   HandHeart,
   HeartPulse,
+  Home,
   Inbox,
   Landmark,
   LineChart as LineChartIcon,
   MapPin,
   Pause,
   Play,
+  Save,
   Settings,
   Shield,
   Sparkles,
@@ -57,6 +59,8 @@ import { toast } from "sonner";
 import EventFeed from "@/components/event-feed";
 import PopulationChart from "@/components/population-chart";
 import { cn } from "@/lib/utils";
+import { saveGame } from "@/lib/saves";
+import { useLanguage } from "@/contexts/language-context";
 import {
   Dialog,
   DialogContent,
@@ -66,7 +70,70 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-const MAP_ASSET = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/assets/mayor-city-map.svg`;
+const MAP_DAY_ASSET = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/assets/maps/city-map-day.webp`;
+const MAP_MORNING_ASSET = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/assets/maps/city-map-morning.webp`;
+const MAP_EVENING_ASSET = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/assets/maps/city-map-evening.webp`;
+const MAP_NIGHT_ASSET = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/assets/maps/city-map-night.webp`;
+
+type CivicCategory = "society" | "economy" | "government";
+
+const CIVIC_CATEGORY_STYLES: Record<CivicCategory, {
+  label: string;
+  color: string;
+  soft: string;
+  border: string;
+  text: string;
+}> = {
+  society: {
+    label: "Общество",
+    color: "hsl(151,58%,72%)",
+    soft: "hsla(151,58%,72%,0.13)",
+    border: "hsla(151,58%,72%,0.42)",
+    text: "hsl(151,62%,78%)",
+  },
+  economy: {
+    label: "Экономика",
+    color: "hsl(38,78%,74%)",
+    soft: "hsla(38,78%,74%,0.14)",
+    border: "hsla(38,78%,74%,0.44)",
+    text: "hsl(38,82%,80%)",
+  },
+  government: {
+    label: "Государство",
+    color: "hsl(232,67%,79%)",
+    soft: "hsla(232,67%,79%,0.14)",
+    border: "hsla(232,67%,79%,0.46)",
+    text: "hsl(232,72%,84%)",
+  },
+};
+
+const DISTRICT_BOUNDARIES = [
+  {
+    id: "residential",
+    points: "1480,360 1875,345 2155,500 2065,720 1610,805 1345,625",
+    category: "society",
+  },
+  {
+    id: "city-hall",
+    points: "820,515 1095,425 1335,555 1355,730 1195,865 905,800 740,665",
+    category: "government",
+  },
+  {
+    id: "business",
+    points: "2110,145 2790,145 2865,360 2685,555 2240,505 2045,335",
+    category: "economy",
+  },
+  {
+    id: "market",
+    points: "675,875 1065,855 1385,930 1520,1110 1295,1240 820,1165 565,1005",
+    category: "economy",
+  },
+  {
+    id: "services",
+    points: "45,250 445,165 755,330 705,580 525,805 170,790 35,600",
+    category: "society",
+  },
+] as const satisfies readonly { id: string; points: string; category: CivicCategory }[];
 
 const SECTION_LINKS = [
   { href: "/agents", label: "Жители", icon: Users },
@@ -86,7 +153,10 @@ const GOAL_LABELS: Record<string, string> = {
   balanced: "Баланс интересов",
   crisis_recovery: "Выход из кризиса",
   economic_growth: "Рост экономики",
-  social_stability: "Стабильный город",
+  market_growth: "Рыночная стратегия",
+  social_stability: "Социальная стратегия",
+  force_order: "Силовая стратегия",
+  corruption_network: "Коррупционная стратегия",
 };
 
 type ChartDatum = {
@@ -122,14 +192,66 @@ function toneFor(value: number) {
 }
 
 function toneColor(tone: "good" | "warn" | "bad") {
-  if (tone === "good") return "hsl(173,80%,42%)";
-  if (tone === "warn") return "hsl(43,100%,54%)";
-  return "hsl(348,83%,56%)";
+  if (tone === "good") return "hsl(156,52%,70%)";
+  if (tone === "warn") return "hsl(39,78%,72%)";
+  return "hsl(351,72%,75%)";
+}
+
+function categoryStyle(category: CivicCategory) {
+  return CIVIC_CATEGORY_STYLES[category];
+}
+
+function categoryFromSide(side?: string): CivicCategory {
+  if (side === "business") return "economy";
+  if (side === "government") return "government";
+  return "society";
+}
+
+function categoryFromRequest(request: ResidentRequest): CivicCategory {
+  if (request.category === "finance" || request.category === "work" || request.category === "food") return "economy";
+  if (request.category === "safety") return "government";
+  return "society";
+}
+
+function mapPhaseForHour(hour: number) {
+  if (hour >= 5 && hour < 10) return "morning";
+  if (hour >= 10 && hour < 17) return "day";
+  if (hour >= 17 && hour < 21) return "evening";
+  return "night";
+}
+
+const MAP_PHASE_ASSETS = [
+  { phase: "morning", src: MAP_MORNING_ASSET },
+  { phase: "day", src: MAP_DAY_ASSET },
+  { phase: "evening", src: MAP_EVENING_ASSET },
+  { phase: "night", src: MAP_NIGHT_ASSET },
+] as const;
+
+type Translation = ReturnType<typeof useLanguage>["t"];
+
+function getGoalLabel(goalType: string, t: Translation) {
+  if (goalType === "crisis_recovery") return t.dashboard.crisisRecoveryGoal;
+  if (goalType === "economic_growth") return t.dashboard.economicGrowthGoal;
+  if (goalType === "market_growth") return t.dashboard.marketGrowthGoal;
+  if (goalType === "social_stability") return t.dashboard.socialStabilityGoal;
+  if (goalType === "force_order") return t.dashboard.forceOrderGoal;
+  if (goalType === "corruption_network") return t.dashboard.corruptionNetworkGoal;
+  return t.dashboard.balancedGoal;
+}
+
+function getScenarioLabel(scenarioType: string, t: Translation) {
+  if (scenarioType === "crisis") return t.dashboard.crisisScenario;
+  if (scenarioType === "growth") return t.dashboard.growthScenario;
+  if (scenarioType === "stability") return t.dashboard.stabilityScenario;
+  return t.dashboard.balancedScenario;
 }
 
 export default function Dashboard() {
   const qc = useQueryClient();
+  const { t } = useLanguage();
   const [tickFlash, setTickFlash] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
   const prevTickRef = useRef<number | undefined>(undefined);
 
   const { data: state, isLoading } = useGetSimulationState({
@@ -225,6 +347,29 @@ export default function Dashboard() {
     return undefined;
   }, [state?.tick]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsGameMenuOpen(open => !open);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const handleQuickSave = async () => {
+    try {
+      setIsSaving(true);
+      await saveGame("quick", t.menu.quickSave);
+      toast.success(t.game.saved);
+    } catch {
+      toast.error(t.game.saveFailed);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const chartData = useMemo<ChartDatum[]>(() => history?.map(h => ({
     tick: h.tick,
     mood: Math.round(h.avgMood * 10) / 10,
@@ -247,15 +392,15 @@ export default function Dashboard() {
   }, [state, summary]);
 
   const gameTime = state
-    ? `День ${state.gameDay}, ${String(state.gameHour).padStart(2, "0")}:00`
-    : "Загрузка";
+    ? `${t.dashboard.day} ${state.gameDay}, ${String(state.gameHour).padStart(2, "0")}:00`
+    : t.dashboard.loading;
 
   if (isLoading || !state) {
     return (
-      <div className="h-screen grid place-items-center bg-[#071019] text-foreground">
+      <div className="h-screen grid place-items-center bg-[#202831] text-foreground">
         <div className="text-center">
           <Building2 className="w-8 h-8 mx-auto mb-3 text-primary animate-pulse" />
-          <p className="text-sm text-muted-foreground">Город загружается...</p>
+          <p className="text-sm text-muted-foreground">{t.dashboard.cityLoading}</p>
         </div>
       </div>
     );
@@ -264,8 +409,8 @@ export default function Dashboard() {
   const ended = state.gameStatus !== "active";
 
   return (
-    <div className="relative h-screen overflow-hidden bg-[#071019] text-foreground">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(34,200,184,0.18),transparent_38%),linear-gradient(180deg,rgba(7,16,25,0.4),#071019_88%)]" />
+    <div className="relative h-screen overflow-hidden bg-[#202831] text-foreground">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(34,200,184,0.18),transparent_38%),linear-gradient(180deg,rgba(32,40,49,0.4),#202831_88%)]" />
 
       <div className="relative z-10 h-full grid grid-rows-[auto_1fr_auto] gap-3 p-3 sm:p-4">
         <GameTopBar
@@ -277,6 +422,7 @@ export default function Dashboard() {
           isStopping={stopMutation.isPending}
           onStart={() => startMutation.mutate()}
           onStop={() => stopMutation.mutate()}
+          onOpenMenu={() => setIsGameMenuOpen(true)}
           chartData={chartData}
           summary={summary}
         />
@@ -310,6 +456,14 @@ export default function Dashboard() {
           <FinalReportCard state={state} summary={summary} chartData={chartData} />
         </div>
       )}
+
+      {isGameMenuOpen && (
+        <GameMenuOverlay
+          isSaving={isSaving}
+          onClose={() => setIsGameMenuOpen(false)}
+          onSave={handleQuickSave}
+        />
+      )}
     </div>
   );
 }
@@ -323,6 +477,7 @@ function GameTopBar({
   isStopping,
   onStart,
   onStop,
+  onOpenMenu,
   chartData,
   summary,
 }: {
@@ -334,9 +489,11 @@ function GameTopBar({
   isStopping: boolean;
   onStart: () => void;
   onStop: () => void;
+  onOpenMenu: () => void;
   chartData: ChartDatum[];
   summary?: StatsSummary;
 }) {
+  const { t } = useLanguage();
   return (
     <header className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-3 items-center">
       <div className="flex items-center gap-3 min-w-0">
@@ -345,17 +502,17 @@ function GameTopBar({
         </div>
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">LifeSim Mayor Mode</p>
-          <h1 className="text-lg font-semibold truncate">{GOAL_LABELS[state.goalType] ?? state.goalType}</h1>
+          <h1 className="text-lg font-semibold truncate">{getGoalLabel(state.goalType, t)}</h1>
         </div>
       </div>
 
       <div className="flex items-center justify-center gap-2 flex-wrap">
         <div className={cn(
           "inline-flex items-center gap-2 rounded border px-3 py-2 text-xs font-medium bg-black/28 backdrop-blur",
-          running ? "border-primary/40 text-primary" : "border-[hsl(348,83%,47%)]/45 text-[hsl(348,83%,58%)]"
+          running ? "border-primary/40 text-primary" : "border-[hsl(351,72%,75%)]/45 text-[hsl(351,72%,78%)]"
         )}>
-          <span className={cn("w-2 h-2 rounded-full", running ? "bg-primary animate-pulse" : "bg-[hsl(348,83%,58%)]")} />
-          {running ? "Город живёт" : "Пауза"}
+          <span className={cn("w-2 h-2 rounded-full", running ? "bg-primary animate-pulse" : "bg-[hsl(351,72%,78%)]")} />
+          {running ? t.dashboard.running : t.dashboard.paused}
         </div>
         <div className={cn(
           "inline-flex items-center gap-2 rounded border border-border/70 bg-black/28 px-3 py-2 text-xs font-medium backdrop-blur transition-colors",
@@ -371,7 +528,7 @@ function GameTopBar({
             className="inline-flex items-center gap-2 rounded bg-secondary px-3 py-2 text-xs font-medium text-secondary-foreground border border-border hover:opacity-90 disabled:opacity-50"
           >
             <Pause className="w-3.5 h-3.5" />
-            Пауза
+            {t.dashboard.pause}
           </button>
         ) : state.gameStatus === "active" && (
           <button
@@ -380,25 +537,92 @@ function GameTopBar({
             className="inline-flex items-center gap-2 rounded bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
             <Play className="w-3.5 h-3.5" />
-            Пуск
+            {t.dashboard.start}
           </button>
         )}
       </div>
 
       <nav className="flex items-center justify-start lg:justify-end gap-2 overflow-x-auto">
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          className="inline-flex items-center gap-2 rounded border border-border/70 bg-black/28 px-3 py-2 text-xs font-medium text-foreground backdrop-blur hover:border-primary/50 hover:text-primary whitespace-nowrap"
+        >
+          <Home className="w-3.5 h-3.5" />
+          {t.dashboard.menu}
+        </button>
         <MetricsDialog state={state} summary={summary} chartData={chartData} running={running} />
-        {SECTION_LINKS.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className="inline-flex items-center gap-2 rounded border border-border/70 bg-black/28 px-3 py-2 text-xs font-medium text-foreground backdrop-blur hover:border-primary/50 hover:text-primary whitespace-nowrap"
-          >
-            <Icon className="w-3.5 h-3.5" />
-            {label}
-          </Link>
-        ))}
       </nav>
     </header>
+  );
+}
+
+function GameMenuOverlay({
+  isSaving,
+  onClose,
+  onSave,
+}: {
+  isSaving: boolean;
+  onClose: () => void;
+  onSave: () => void | Promise<void>;
+}) {
+  const { t } = useLanguage();
+
+  return (
+    <div className="absolute inset-0 z-50 grid place-items-center bg-black/62 backdrop-blur-sm px-4">
+      <div className="w-full max-w-sm rounded border border-border/70 bg-background/98 p-4 shadow-2xl">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-primary">LifeSim Mayor Mode</p>
+            <h2 className="text-lg font-semibold">{t.dashboard.menu}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded border border-border bg-secondary p-2 text-secondary-foreground hover:opacity-90"
+            aria-label={t.menu.back}
+          >
+            <XCircle className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground hover:opacity-90"
+          >
+            <Play className="w-4 h-4" />
+            {t.menu.continueGame}
+          </button>
+          <button
+            type="button"
+            onClick={() => void onSave()}
+            disabled={isSaving}
+            className="inline-flex items-center gap-2 rounded border border-primary/40 bg-primary/12 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/18 disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {isSaving ? t.game.saving : t.game.save}
+          </button>
+          <Link
+            href="/settings"
+            className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground hover:opacity-90"
+          >
+            <Settings className="w-4 h-4" />
+            {t.menu.settings}
+          </Link>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground hover:opacity-90"
+          >
+            <Home className="w-4 h-4" />
+            {t.dashboard.menu}
+          </Link>
+        </div>
+
+        <p className="mt-4 text-[11px] text-muted-foreground">Esc</p>
+      </div>
+    </div>
   );
 }
 
@@ -411,26 +635,27 @@ function LeftStatusPanel({
   health: { society: number; economy: number; government: number };
   decisions?: DailyDecisionsState;
 }) {
+  const { t } = useLanguage();
   const pressure = Math.max(...(decisions?.factionPressure.pressureBySide.map(side => side.pressure) ?? [0]));
 
   return (
     <aside className="min-h-0 rounded border border-border/70 bg-black/30 backdrop-blur p-3 space-y-3 xl:overflow-y-auto">
-      <PanelTitle icon={HeartPulse} title="Состояние города" />
-      <CoreGauge label="Общество" value={health.society} icon={Users} />
-      <CoreGauge label="Экономика" value={health.economy} icon={Briefcase} />
-      <CoreGauge label="Государство" value={health.government} icon={Landmark} />
+      <PanelTitle icon={HeartPulse} title={t.dashboard.cityStatus} />
+      <CoreGauge label={t.dashboard.society} value={health.society} icon={Users} href="/agents" category="society" />
+      <CoreGauge label={t.dashboard.economy} value={health.economy} icon={Briefcase} href="/economy" category="economy" />
+      <CoreGauge label={t.dashboard.government} value={health.government} icon={Landmark} href="/government" category="government" />
 
       <div className="border-t border-border/60 pt-3 space-y-2">
-        <MiniReadout label="Прогресс цели" value={`${state.goalProgress}%`} tone={toneFor(state.goalProgress)} />
-        <MiniReadout label="Дней осталось" value={String(state.daysRemaining)} tone={state.daysRemaining > 7 ? "good" : "warn"} />
-        <MiniReadout label="Давление фракций" value={String(pressure)} tone={pressure >= 70 ? "bad" : pressure >= 45 ? "warn" : "good"} />
+        <MiniReadout label={t.dashboard.goalProgress} value={`${state.goalProgress}%`} tone={toneFor(state.goalProgress)} />
+        <MiniReadout label={t.dashboard.daysRemaining} value={String(state.daysRemaining)} tone={state.daysRemaining > 7 ? "good" : "warn"} />
+        <MiniReadout label={t.dashboard.factionPressure} value={String(pressure)} tone={pressure >= 70 ? "bad" : pressure >= 45 ? "warn" : "good"} />
       </div>
 
       <div className="rounded border border-primary/25 bg-primary/10 p-3">
-        <p className="text-[10px] uppercase tracking-widest text-primary">Сценарий</p>
-        <p className="text-sm font-semibold mt-1">{SCENARIO_LABELS[state.scenarioType] ?? state.scenarioType}</p>
+        <p className="text-[10px] uppercase tracking-widest text-primary">{t.dashboard.scenario}</p>
+        <p className="text-sm font-semibold mt-1">{getScenarioLabel(state.scenarioType, t)}</p>
         <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-          Решения дня меняют город не сразу: часть эффектов запускается через несколько дней.
+          {t.dashboard.scenarioNote}
         </p>
       </div>
     </aside>
@@ -452,34 +677,47 @@ function CityMapStage({
   const [selectedId, setSelectedId] = useState("city-hall");
   const selected = districts.find(district => district.id === selectedId) ?? districts[0];
   const SelectedIcon = selected.icon;
+  const activeMapPhase = mapPhaseForHour(state.gameHour);
 
   return (
     <section className="relative min-h-[560px] xl:min-h-0 rounded border border-border/70 bg-black/25 overflow-hidden">
-      <img
-        src={MAP_ASSET}
-        alt="Карта города"
-        className="absolute inset-0 h-full w-full object-cover opacity-95"
-        draggable={false}
-      />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,transparent_35%,rgba(7,16,25,0.58)_86%)]" />
+      {MAP_PHASE_ASSETS.map(map => (
+        <img
+          key={map.phase}
+          src={map.src}
+          alt={map.phase === activeMapPhase ? "����� ������" : ""}
+          className={cn(
+            "absolute inset-0 h-full w-full object-cover transition-opacity duration-1000",
+            map.phase === activeMapPhase ? "opacity-95" : "opacity-0"
+          )}
+          draggable={false}
+          aria-hidden={map.phase !== activeMapPhase}
+        />
+      ))}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,transparent_48%,rgba(47,57,68,0.42)_94%)]" />
+      <DistrictBoundaryOverlay selectedId={selected.id} />
 
       {districts.map(district => {
         const Icon = district.icon;
         const active = district.id === selected.id;
-        const color = toneColor(toneFor(district.health));
+        const category = categoryStyle(district.category);
         return (
           <button
             key={district.id}
             type="button"
             onClick={() => setSelectedId(district.id)}
             className={cn(
-              "absolute -translate-x-1/2 -translate-y-1/2 rounded border bg-black/50 backdrop-blur px-3 py-2 text-left shadow-lg transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary/60",
-              active ? "border-primary/70" : "border-white/20"
+              "absolute -translate-x-1/2 -translate-y-1/2 rounded border backdrop-blur px-3 py-2 text-left shadow-lg transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary/60"
             )}
-            style={{ left: district.x, top: district.y }}
+            style={{
+              left: district.x,
+              top: district.y,
+              borderColor: active ? category.border : "rgba(255,255,255,0.18)",
+              background: active ? `linear-gradient(135deg, ${category.soft}, rgba(10,16,24,0.62))` : "rgba(10,16,24,0.52)",
+            }}
           >
             <div className="flex items-center gap-2">
-              <Icon className="w-4 h-4 shrink-0" style={{ color }} />
+              <Icon className="w-4 h-4 shrink-0" style={{ color: category.color }} />
               <div>
                 <p className="text-[10px] font-semibold leading-none whitespace-nowrap">{district.name}</p>
                 <p className="text-[9px] text-muted-foreground mt-1">{district.health}</p>
@@ -503,12 +741,21 @@ function CityMapStage({
       <div className="absolute left-4 bottom-4 right-4 rounded border border-border/70 bg-black/58 backdrop-blur p-3">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded bg-white/8 border border-white/12 grid place-items-center shrink-0">
-            <SelectedIcon className="w-5 h-5" style={{ color: toneColor(toneFor(selected.health)) }} />
+            <SelectedIcon className="w-5 h-5" style={{ color: categoryStyle(selected.category).color }} />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base font-semibold">{selected.name}</h2>
-              <span className="text-[10px] rounded bg-white/8 px-2 py-0.5 text-muted-foreground">{selected.role}</span>
+              <span
+                className="text-[10px] rounded px-2 py-0.5 font-medium"
+                style={{
+                  background: categoryStyle(selected.category).soft,
+                  color: categoryStyle(selected.category).text,
+                  border: `1px solid ${categoryStyle(selected.category).border}`,
+                }}
+              >
+                {categoryStyle(selected.category).label}
+              </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{selected.detail}</p>
           </div>
@@ -519,6 +766,56 @@ function CityMapStage({
         </div>
       </div>
     </section>
+  );
+}
+
+function DistrictBoundaryOverlay({ selectedId }: { selectedId: string }) {
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 h-full w-full"
+      viewBox="0 0 2944 1424"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
+      <defs>
+        <filter id="districtBoundaryGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      {DISTRICT_BOUNDARIES.map(boundary => {
+        const active = boundary.id === selectedId;
+        const category = categoryStyle(boundary.category);
+        return (
+          <g key={boundary.id}>
+            <polygon
+              points={boundary.points}
+              fill={active ? category.color : "transparent"}
+              fillOpacity={active ? 0.14 : 0}
+              stroke="rgba(0,0,0,0.72)"
+              strokeWidth={active ? 13 : 5}
+              strokeOpacity={active ? 1 : 0.42}
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+            <polygon
+              points={boundary.points}
+              fill="transparent"
+              stroke={category.color}
+              strokeOpacity={active ? 0.9 : 0.34}
+              strokeWidth={active ? 4 : 2}
+              strokeDasharray={active ? "0" : "10 12"}
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+              filter={active ? "url(#districtBoundaryGlow)" : undefined}
+            />
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
@@ -538,14 +835,17 @@ function RightRequestsPanel({
   const requests = requestsState?.requests ?? [];
   const pending = requestsState?.pendingCount ?? 0;
   const activeDemand = decisions?.factionPressure.activeDemands[0];
+  const activeDemandCategory = categoryStyle(categoryFromSide(activeDemand?.side));
 
   return (
     <aside className="min-h-0 rounded border border-border/70 bg-black/30 backdrop-blur p-3 space-y-3 xl:overflow-y-auto">
       <PanelTitle icon={Inbox} title="Обращения и сигналы" badge={String(pending)} />
 
       {activeDemand && (
-        <div className="rounded border border-[hsl(43,100%,50%)]/35 bg-[hsl(43,100%,50%)]/10 p-3">
-          <p className="text-[10px] uppercase tracking-widest text-[hsl(43,100%,58%)]">{activeDemand.sideLabel}</p>
+        <div className="rounded border p-3" style={{ borderColor: activeDemandCategory.border, background: activeDemandCategory.soft }}>
+          <p className="text-[10px] uppercase tracking-widest" style={{ color: activeDemandCategory.text }}>
+            {activeDemandCategory.label} / {activeDemand.sideLabel}
+          </p>
           <p className="text-sm font-semibold mt-1">{activeDemand.title}</p>
           <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{activeDemand.requirement}</p>
         </div>
@@ -631,39 +931,40 @@ function MetricsDialog({
   chartData: ChartDatum[];
   running: boolean;
 }) {
+  const { t } = useLanguage();
   return (
     <Dialog>
       <DialogTrigger asChild>
         <button className="inline-flex items-center gap-2 rounded border border-primary/40 bg-primary/12 px-3 py-2 text-xs font-medium text-primary backdrop-blur hover:bg-primary/18 whitespace-nowrap">
           <BarChart3 className="w-3.5 h-3.5" />
-          Метрики
+          {t.dashboard.metrics}
         </button>
       </DialogTrigger>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-background/98">
         <DialogHeader>
-          <DialogTitle>Подробные метрики города</DialogTitle>
+          <DialogTitle>{t.dashboard.detailedMetrics}</DialogTitle>
           <DialogDescription>
-            Полная аналитика вынесена сюда, чтобы главный экран оставался игровым.
+            {t.dashboard.detailedMetricsDescription}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <MetricTile icon={Users} label="Население" value={state.population.toLocaleString()} detail={`день ${state.gameDay}`} />
-          <MetricTile icon={HeartPulse} label="Настроение" value={state.avgMood.toFixed(1)} detail="из 100" />
-          <MetricTile icon={CircleDollarSign} label="ВВП" value={`${Math.round(state.gdp / 1000)}K`} detail="капитал" />
-          <MetricTile icon={Landmark} label="Бюджет" value={Math.round(state.governmentBudget).toLocaleString()} detail="казна" />
-          <MetricTile icon={Briefcase} label="Безработица" value={`${state.unemploymentRate.toFixed(1)}%`} detail="рынок труда" />
-          <MetricTile icon={Shield} label="Здоровье" value={summary?.avgHealth?.toFixed(1) ?? "—"} detail="среднее" />
-          <MetricTile icon={Sparkles} label="Бизнесы" value={summary ? `${summary.profitableBusinesses}/${summary.totalBusinesses}` : "—"} detail="прибыльные" />
-          <MetricTile icon={ArrowRight} label="Миграция" value={`${(summary?.immigrantsLastTick ?? 0) - (summary?.emigrantsLastTick ?? 0)}`} detail="+ / − за день" />
+          <MetricTile icon={Users} label={t.dashboard.population} value={state.population.toLocaleString()} detail={`${t.dashboard.day} ${state.gameDay}`} />
+          <MetricTile icon={HeartPulse} label={t.dashboard.mood} value={state.avgMood.toFixed(1)} detail="/ 100" />
+          <MetricTile icon={CircleDollarSign} label={t.dashboard.gdp} value={`${Math.round(state.gdp / 1000)}K`} detail="capital" />
+          <MetricTile icon={Landmark} label={t.dashboard.budget} value={Math.round(state.governmentBudget).toLocaleString()} detail="treasury" />
+          <MetricTile icon={Briefcase} label={t.dashboard.unemployment} value={`${state.unemploymentRate.toFixed(1)}%`} detail="labor market" />
+          <MetricTile icon={Shield} label={t.dashboard.health} value={summary?.avgHealth?.toFixed(1) ?? "—"} detail="average" />
+          <MetricTile icon={Sparkles} label={t.dashboard.businesses} value={summary ? `${summary.profitableBusinesses}/${summary.totalBusinesses}` : "—"} detail="profitable" />
+          <MetricTile icon={ArrowRight} label={t.dashboard.migration} value={`${(summary?.immigrantsLastTick ?? 0) - (summary?.emigrantsLastTick ?? 0)}`} detail="+ / - day" />
         </div>
 
         {chartData.length > 0 && (
           <div className="grid lg:grid-cols-2 gap-3">
-            <ChartCard title="Настроение" data={chartData} dataKey="mood" color="hsl(43,100%,54%)" domain={[0, 100]} />
-            <ChartCard title="ВВП, тыс." data={chartData} dataKey="gdp" color="hsl(173,80%,42%)" />
-            <ChartCard title="Население" data={chartData} dataKey="population" color="hsl(210,100%,58%)" />
-            <ChartCard title="Казна" data={chartData} dataKey="govBudget" color="hsl(280,80%,64%)" />
+            <ChartCard title={t.dashboard.mood} data={chartData} dataKey="mood" color="hsl(38,78%,74%)" domain={[0, 100]} />
+            <ChartCard title={t.dashboard.gdp} data={chartData} dataKey="gdp" color="hsl(173,80%,42%)" />
+            <ChartCard title={t.dashboard.population} data={chartData} dataKey="population" color="hsl(232,67%,79%)" />
+            <ChartCard title={t.dashboard.budget} data={chartData} dataKey="govBudget" color="hsl(282,52%,80%)" />
           </div>
         )}
 
@@ -736,8 +1037,9 @@ function buildDistricts(
       name: "Кварталы",
       role: "общество",
       icon: Users,
-      x: "29%",
-      y: "38%",
+      category: "society" as const,
+      x: "60%",
+      y: "43%",
       health: clamp(health.society - residentsPressure * 0.08),
       detail: `Настроение ${state.avgMood.toFixed(1)}, здоровье ${summary?.avgHealth?.toFixed(1) ?? "—"}, доверие жителей ${state.reputationResidents.toFixed(0)}.`,
     },
@@ -746,8 +1048,9 @@ function buildDistricts(
       name: "Ратуша",
       role: "мандат",
       icon: Landmark,
-      x: "50%",
-      y: "38%",
+      category: "government" as const,
+      x: "39%",
+      y: "48%",
       health: health.government,
       detail: `Прогресс цели ${state.goalProgress}%, власть ${state.reputationGovernment.toFixed(0)}, осталось ${state.daysRemaining} дней.`,
     },
@@ -756,8 +1059,9 @@ function buildDistricts(
       name: "Деловой район",
       role: "экономика",
       icon: Briefcase,
-      x: "70%",
-      y: "35%",
+      category: "economy" as const,
+      x: "83%",
+      y: "27%",
       health: clamp(health.economy - businessPressure * 0.08),
       detail: `ВВП ${Math.round(state.gdp / 1000)}K, безработица ${state.unemploymentRate.toFixed(1)}%, доверие бизнеса ${state.reputationBusiness.toFixed(0)}.`,
     },
@@ -766,8 +1070,9 @@ function buildDistricts(
       name: "Рынок",
       role: "товары",
       icon: CircleDollarSign,
-      x: "61%",
-      y: "58%",
+      category: "economy" as const,
+      x: "35%",
+      y: "62%",
       health: clamp(55 + Math.min(35, Math.max(-30, (summary?.marketBalance ?? 0) / 1000))),
       detail: `Баланс рынка ${summary?.marketBalance?.toLocaleString() ?? "—"}, популярный товар: ${summary?.mostPopularGood ?? "—"}.`,
     },
@@ -776,8 +1081,9 @@ function buildDistricts(
       name: "Службы",
       role: "безопасность",
       icon: Shield,
-      x: "38%",
-      y: "61%",
+      category: "society" as const,
+      x: "20%",
+      y: "56%",
       health: clamp(((summary?.avgHealth ?? 55) + (summary?.avgSleep ?? 55) + state.reputationResidents) / 3),
       detail: `Здоровье ${summary?.avgHealth?.toFixed(1) ?? "—"}, сон ${summary?.avgSleep?.toFixed(1) ?? "—"}, активных эффектов ${decisions?.activeEffects.length ?? 0}.`,
     },
@@ -796,22 +1102,41 @@ function PanelTitle({ icon: Icon, title, badge }: { icon: ElementType; title: st
   );
 }
 
-function CoreGauge({ label, value, icon: Icon }: { label: string; value: number; icon: ElementType }) {
-  const tone = toneFor(value);
-  const color = toneColor(tone);
-  return (
-    <div className="rounded border border-border/60 bg-white/[0.04] p-3">
+function CoreGauge({
+  label,
+  value,
+  icon: Icon,
+  href,
+  category,
+}: {
+  label: string;
+  value: number;
+  icon: ElementType;
+  href?: string;
+  category: CivicCategory;
+}) {
+  const style = categoryStyle(category);
+  const content = (
+    <div className="rounded border p-3" style={{ borderColor: style.border, background: style.soft }}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4" style={{ color }} />
+          <Icon className="w-4 h-4" style={{ color: style.color }} />
           <span className="text-sm font-medium">{label}</span>
         </div>
-        <span className="text-lg font-semibold tabular-nums" style={{ color }}>{value}</span>
+        <span className="text-lg font-semibold tabular-nums" style={{ color: style.text }}>{value}</span>
       </div>
       <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${value}%`, background: color }} />
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${value}%`, background: style.color }} />
       </div>
     </div>
+  );
+  if (!href) return content;
+  return (
+    <Link href={href} className="block rounded focus:outline-none focus:ring-2 focus:ring-primary/60">
+      <div className="transition-transform hover:scale-[1.01]">
+        {content}
+      </div>
+    </Link>
   );
 }
 
@@ -833,8 +1158,9 @@ function RequestCard({
   disabled: boolean;
   onProcess: (requestId: string, action: "help" | "decline") => void;
 }) {
+  const requestCategory = categoryStyle(categoryFromRequest(request));
   return (
-    <div className="rounded border border-border/60 bg-white/[0.04] p-3">
+    <div className="rounded border p-3" style={{ borderColor: requestCategory.border, background: requestCategory.soft }}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-semibold truncate">{request.residentName}, {request.residentAge}</p>
@@ -843,9 +1169,23 @@ function RequestCard({
             {request.district}
           </p>
         </div>
-        <span className="text-[9px] rounded bg-white/8 px-2 py-0.5 text-muted-foreground shrink-0">{request.categoryLabel}</span>
+        <span className="text-[9px] rounded bg-white/8 px-2 py-0.5 font-medium shrink-0" style={{ color: requestCategory.text }}>
+          {requestCategory.label} / {request.categoryLabel}
+        </span>
       </div>
       <p className="text-[11px] text-muted-foreground leading-relaxed mt-2 line-clamp-3">{request.problem}</p>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
+        <div className="rounded border border-white/10 bg-black/16 px-2 py-1">
+          <span className="text-muted-foreground">Помочь</span>
+          <span className="block font-semibold tabular-nums" style={{ color: requestCategory.text }}>
+            Бюджет {Math.round(request.helpCost).toLocaleString()}
+          </span>
+        </div>
+        <div className="rounded border border-white/10 bg-black/16 px-2 py-1">
+          <span className="text-muted-foreground">Отказать</span>
+          <span className="block font-semibold text-[hsl(351,72%,78%)]">0, риск доверия</span>
+        </div>
+      </div>
       <div className="flex items-center gap-2 mt-3">
         <button
           onClick={() => onProcess(request.id, "help")}
@@ -873,16 +1213,20 @@ function ActionCard({ decision, isIssuing, onIssue }: {
   isIssuing: boolean;
   onIssue: (decisionId: string) => void;
 }) {
-  const tone = decision.tone === "critical" ? "bad" : decision.tone === "opportunity" ? "good" : "warn";
-  const color = toneColor(tone);
+  const decisionCategory = categoryStyle(categoryFromSide(decision.side));
   return (
-    <div className="rounded border bg-white/[0.05] p-3" style={{ borderColor: `${color}66` }}>
+    <div
+      className="rounded border p-3"
+      style={{ borderColor: decisionCategory.border, background: `linear-gradient(135deg, ${decisionCategory.soft}, rgba(255,255,255,0.04))` }}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-widest truncate" style={{ color }}>{decision.sideLabel}</p>
+          <p className="text-[10px] uppercase tracking-widest truncate" style={{ color: decisionCategory.text }}>
+            {decisionCategory.label} / {decision.sideLabel}
+          </p>
           <h3 className="text-sm font-semibold leading-tight mt-1">{decision.title}</h3>
         </div>
-        <Sparkles className="w-4 h-4 shrink-0" style={{ color }} />
+        <Sparkles className="w-4 h-4 shrink-0" style={{ color: decisionCategory.color }} />
       </div>
       <p className="text-[11px] text-muted-foreground line-clamp-2 mt-2">{decision.impactSummary}</p>
       <div className="flex items-center justify-between gap-2 mt-3">

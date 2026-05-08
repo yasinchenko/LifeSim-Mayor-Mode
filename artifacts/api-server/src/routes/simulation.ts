@@ -41,12 +41,48 @@ router.post("/simulation/new-game", async (req, res): Promise<void> => {
     return;
   }
 
-  simulationEngine.newGame(parsed.data).catch((err) => {
+  try {
+    await simulationEngine.newGame(parsed.data);
+    const state = simulationEngine.getSimulationState();
+    res.json(GetSimulationStateResponse.parse(state));
+  } catch (err) {
     logger.error({ err }, "New game reset failed");
-  });
+    const message = err instanceof Error ? err.message : "NEW_GAME_FAILED";
+    res.status(500).json({ error: message });
+  }
+});
 
-  const state = simulationEngine.getSimulationState();
-  res.json(GetSimulationStateResponse.parse(state));
+router.get("/simulation/saves", (_req, res): void => {
+  res.json(simulationEngine.listGameSaves());
+});
+
+router.post("/simulation/saves", async (req, res): Promise<void> => {
+  try {
+    const saved = await simulationEngine.saveGame(req.body?.slotId, req.body?.name);
+    res.json(saved);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "SAVE_FAILED";
+    res.status(message === "INVALID_SAVE_SLOT" ? 400 : 500).json({ error: message });
+  }
+});
+
+router.post("/simulation/saves/:slotId/load", async (req, res): Promise<void> => {
+  try {
+    const state = await simulationEngine.loadGameSave(req.params.slotId);
+    res.json(GetSimulationStateResponse.parse(state));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "LOAD_FAILED";
+    res.status(message === "SAVE_SLOT_NOT_FOUND" ? 404 : message === "INVALID_SAVE_SLOT" ? 400 : 500).json({ error: message });
+  }
+});
+
+router.delete("/simulation/saves/:slotId", (req, res): void => {
+  try {
+    res.json(simulationEngine.deleteGameSave(req.params.slotId));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "DELETE_FAILED";
+    res.status(message === "INVALID_SAVE_SLOT" ? 400 : 500).json({ error: message });
+  }
 });
 
 router.get("/simulation/state", (_req, res): void => {

@@ -85,14 +85,14 @@ export default function GovernmentPage() {
           {/* Government Grants Panel */}
           <div className={cn(
             "bg-card border rounded p-4 space-y-3",
-            unemploymentHigh ? "border-[hsl(348,83%,47%)]/40 bg-[hsl(348,83%,47%)]/5" : "border-card-border"
+            unemploymentHigh ? "border-[hsl(351,72%,75%)]/40 bg-[hsl(351,72%,75%)]/5" : "border-card-border"
           )}>
             <div className="flex items-center justify-between">
               <h2 className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">
                 Гранты на открытие бизнеса
               </h2>
               {unemploymentHigh && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-semibold bg-[hsl(348,83%,47%)]/15 text-[hsl(348,83%,47%)] border border-[hsl(348,83%,47%)]/25">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-semibold bg-[hsl(351,72%,75%)]/15 text-[hsl(351,72%,75%)] border border-[hsl(351,72%,75%)]/25">
                   <AlertTriangle className="w-2.5 h-2.5" />
                   АКТИВНО
                 </span>
@@ -101,7 +101,7 @@ export default function GovernmentPage() {
             <div className="grid grid-cols-3 gap-4 text-xs">
               <div className="space-y-1">
                 <p className="text-muted-foreground">Безработица сейчас</p>
-                <p className={cn("font-semibold text-base tabular-nums", unemploymentHigh ? "text-[hsl(348,83%,47%)]" : "text-foreground")}>
+                <p className={cn("font-semibold text-base tabular-nums", unemploymentHigh ? "text-[hsl(351,72%,75%)]" : "text-foreground")}>
                   {gov.unemploymentRatePct.toFixed(1)}%
                 </p>
                 <p className="text-[10px] text-muted-foreground">
@@ -182,27 +182,27 @@ export default function GovernmentPage() {
             <div className="space-y-2 text-xs">
               <div className="flex justify-between py-1 border-b border-border/50">
                 <span className="text-muted-foreground">Собрано налогов</span>
-                <span className="text-[hsl(173,80%,40%)] tabular-nums">+{gov.totalTaxCollected.toFixed(0)}</span>
+                <span className="text-[hsl(156,52%,70%)] tabular-nums">+{gov.totalTaxCollected.toFixed(0)}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-border/50">
                 <span className="text-muted-foreground">Выплачено субсидий</span>
-                <span className="text-[hsl(348,83%,47%)] tabular-nums">-{gov.totalSubsidiesPaid.toFixed(0)}</span>
+                <span className="text-[hsl(351,72%,75%)] tabular-nums">-{gov.totalSubsidiesPaid.toFixed(0)}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-border/50">
                 <span className="text-muted-foreground">Выплачено пенсий</span>
-                <span className="text-[hsl(348,83%,47%)] tabular-nums">-{gov.totalPensionPaid.toFixed(0)}</span>
+                <span className="text-[hsl(351,72%,75%)] tabular-nums">-{gov.totalPensionPaid.toFixed(0)}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-border/50">
                 <span className="text-muted-foreground">Финансирование публичных служб</span>
-                <span className="text-[hsl(348,83%,47%)] tabular-nums">-{gov.totalPublicServicesPaid.toFixed(0)}</span>
+                <span className="text-[hsl(351,72%,75%)] tabular-nums">-{gov.totalPublicServicesPaid.toFixed(0)}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-border/50">
                 <span className="text-muted-foreground">Гранты на открытие бизнеса</span>
-                <span className="text-[hsl(348,83%,47%)] tabular-nums">-{gov.totalGrantsPaid.toFixed(0)}</span>
+                <span className="text-[hsl(351,72%,75%)] tabular-nums">-{gov.totalGrantsPaid.toFixed(0)}</span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="font-medium text-foreground">Итого бюджет</span>
-                <span className={`tabular-nums font-medium ${gov.budget >= 0 ? "text-[hsl(173,80%,40%)]" : "text-[hsl(348,83%,47%)]"}`}>
+                <span className={`tabular-nums font-medium ${gov.budget >= 0 ? "text-[hsl(156,52%,70%)]" : "text-[hsl(351,72%,75%)]"}`}>
                   {gov.budget.toFixed(0)}
                 </span>
               </div>

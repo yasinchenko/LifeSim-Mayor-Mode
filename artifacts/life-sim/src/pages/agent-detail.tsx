@@ -37,22 +37,22 @@ function getPersonalityIndex(personality: string, socialization: number): number
 }
 
 const TEMPERAMENT_COLORS: Record<string, string> = {
-  "сангвиник":  "bg-[hsl(43,90%,50%)]/15  text-[hsl(43,90%,50%)]  border-[hsl(43,90%,50%)]/30",
+  "сангвиник":  "bg-[hsl(38,72%,72%)]/15  text-[hsl(38,72%,72%)]  border-[hsl(38,72%,72%)]/30",
   "холерик":    "bg-[hsl(0,80%,55%)]/15   text-[hsl(0,80%,55%)]   border-[hsl(0,80%,55%)]/30",
-  "флегматик":  "bg-[hsl(173,80%,40%)]/15 text-[hsl(173,80%,40%)] border-[hsl(173,80%,40%)]/30",
+  "флегматик":  "bg-[hsl(156,52%,70%)]/15 text-[hsl(156,52%,70%)] border-[hsl(156,52%,70%)]/30",
   "меланхолик": "bg-[hsl(220,70%,55%)]/15 text-[hsl(220,70%,55%)] border-[hsl(220,70%,55%)]/30",
 };
 
 const PRICE_COLORS: Record<PriceTier, string> = {
   "Низкая":  "text-[hsl(120,60%,45%)]",
-  "Средняя": "text-[hsl(43,100%,50%)]",
+  "Средняя": "text-[hsl(38,78%,74%)]",
   "Высокая": "text-[hsl(0,80%,55%)]",
 };
 
 const QUALITY_COLORS: Record<QualityTier, string> = {
   "Низкое":  "text-muted-foreground",
-  "Среднее": "text-[hsl(43,100%,50%)]",
-  "Высокое": "text-[hsl(173,80%,40%)]",
+  "Среднее": "text-[hsl(38,78%,74%)]",
+  "Высокое": "text-[hsl(156,52%,70%)]",
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -73,10 +73,10 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const ACTION_COLORS: Record<string, string> = {
-  eat: "bg-[hsl(43,100%,50%)]/10 text-[hsl(43,100%,50%)] border-[hsl(43,100%,50%)]/30",
-  rest: "bg-[hsl(173,80%,40%)]/10 text-[hsl(173,80%,40%)] border-[hsl(173,80%,40%)]/30",
-  socialize: "bg-[hsl(280,80%,60%)]/10 text-[hsl(280,80%,60%)] border-[hsl(280,80%,60%)]/30",
-  work: "bg-[hsl(210,100%,50%)]/10 text-[hsl(210,100%,50%)] border-[hsl(210,100%,50%)]/30",
+  eat: "bg-[hsl(38,78%,74%)]/10 text-[hsl(38,78%,74%)] border-[hsl(38,78%,74%)]/30",
+  rest: "bg-[hsl(156,52%,70%)]/10 text-[hsl(156,52%,70%)] border-[hsl(156,52%,70%)]/30",
+  socialize: "bg-[hsl(282,52%,78%)]/10 text-[hsl(282,52%,78%)] border-[hsl(282,52%,78%)]/30",
+  work: "bg-[hsl(232,67%,79%)]/10 text-[hsl(232,67%,79%)] border-[hsl(232,67%,79%)]/30",
   sleep: "bg-[hsl(220,70%,55%)]/10 text-[hsl(220,70%,55%)] border-[hsl(220,70%,55%)]/30",
   heal: "bg-[hsl(0,80%,55%)]/10 text-[hsl(0,80%,55%)] border-[hsl(0,80%,55%)]/30",
   idle: "bg-muted/50 text-muted-foreground border-border",
@@ -85,7 +85,7 @@ const ACTION_COLORS: Record<string, string> = {
   pray: "bg-[hsl(35,90%,55%)]/10 text-[hsl(35,90%,55%)] border-[hsl(35,90%,55%)]/30",
   rob: "bg-[hsl(0,80%,40%)]/10 text-[hsl(0,80%,55%)] border-[hsl(0,80%,55%)]/30",
   robbed: "bg-[hsl(0,80%,40%)]/10 text-[hsl(0,80%,40%)] border-[hsl(0,80%,40%)]/30",
-  call_police: "bg-[hsl(210,100%,50%)]/10 text-[hsl(210,100%,50%)] border-[hsl(210,100%,50%)]/30",
+  call_police: "bg-[hsl(232,67%,79%)]/10 text-[hsl(232,67%,79%)] border-[hsl(232,67%,79%)]/30",
   jailed: "bg-[hsl(0,0%,40%)]/10 text-[hsl(0,0%,60%)] border-[hsl(0,0%,40%)]/30",
 };
 
@@ -173,11 +173,11 @@ export default function AgentDetailPage() {
         <div className="grid grid-cols-3 gap-4 mt-5">
           <div className="text-center">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Настроение</p>
-            <p className="text-xl font-bold text-[hsl(43,100%,50%)]">{agent.mood.toFixed(1)}</p>
+            <p className="text-xl font-bold text-[hsl(38,78%,74%)]">{agent.mood.toFixed(1)}</p>
           </div>
           <div className="text-center">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Деньги</p>
-            <p className="text-xl font-bold text-[hsl(173,80%,40%)]">{agent.money.toFixed(0)}</p>
+            <p className="text-xl font-bold text-[hsl(156,52%,70%)]">{agent.money.toFixed(0)}</p>
           </div>
           <div className="text-center">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Социализация</p>
@@ -193,12 +193,12 @@ export default function AgentDetailPage() {
             {agent.strength != null && (
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
-                  <Bolt className="w-3 h-3 text-[hsl(43,100%,50%)]" />
+                  <Bolt className="w-3 h-3 text-[hsl(38,78%,74%)]" />
                   <span className="text-xs text-muted-foreground">Сила</span>
-                  <span className="ml-auto text-xs font-semibold text-[hsl(43,100%,50%)]">{agent.strength.toFixed(0)}</span>
+                  <span className="ml-auto text-xs font-semibold text-[hsl(38,78%,74%)]">{agent.strength.toFixed(0)}</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full rounded-full bg-[hsl(43,100%,50%)]" style={{ width: `${agent.strength}%` }} />
+                  <div className="h-full rounded-full bg-[hsl(38,78%,74%)]" style={{ width: `${agent.strength}%` }} />
                 </div>
                 <p className="text-[10px] text-muted-foreground/60">Влияет на ограбление и износ здоровья</p>
               </div>
@@ -224,9 +224,9 @@ export default function AgentDetailPage() {
         <h2 className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">Потребности</h2>
         <NeedsBar label="Здоровье" value={agent.needs.health} icon={ShieldPlus} color="hsl(0,80%,55%)" />
         <NeedsBar label="Сон" value={agent.needs.sleep} icon={Moon} color="hsl(220,70%,55%)" />
-        <NeedsBar label="Голод" value={agent.needs.hunger} icon={Coffee} color="hsl(43,100%,50%)" />
-        <NeedsBar label="Комфорт" value={agent.needs.comfort} icon={Heart} color="hsl(173,80%,40%)" />
-        <NeedsBar label="Общение" value={agent.needs.social} icon={Users} color="hsl(280,80%,60%)" />
+        <NeedsBar label="Голод" value={agent.needs.hunger} icon={Coffee} color="hsl(38,78%,74%)" />
+        <NeedsBar label="Комфорт" value={agent.needs.comfort} icon={Heart} color="hsl(156,52%,70%)" />
+        <NeedsBar label="Общение" value={agent.needs.social} icon={Users} color="hsl(282,52%,78%)" />
         {agent.needs.education != null && (
           <NeedsBar label="Образование" value={agent.needs.education} icon={BookOpen} color="hsl(270,70%,60%)" />
         )}
@@ -243,7 +243,7 @@ export default function AgentDetailPage() {
           <NeedsBar label="Физ. безопасность" value={agent.needs.physicalSafety} icon={Shield} color="hsl(0,80%,55%)" />
         )}
         {agent.needs.socialRating != null && (
-          <NeedsBar label="Рейтинг среди жителей" value={agent.needs.socialRating} icon={Users} color="hsl(280,80%,60%)" />
+          <NeedsBar label="Рейтинг среди жителей" value={agent.needs.socialRating} icon={Users} color="hsl(282,52%,78%)" />
         )}
         {agent.needs.faith != null && (
           <NeedsBar label="Вера" value={agent.needs.faith} icon={Star} color="hsl(35,90%,55%)" />
@@ -297,7 +297,7 @@ export default function AgentDetailPage() {
         {/* Grade + ambition row */}
         {(() => {
           const GRADE_LABELS: Record<number, string> = { 1: "Рабочий", 2: "Менеджер", 3: "Бригадир", 4: "Директор", 5: "Владелец" };
-          const GRADE_COLORS: Record<number, string> = { 1: "hsl(173,60%,35%)", 2: "hsl(173,70%,38%)", 3: "hsl(43,90%,45%)", 4: "hsl(43,100%,50%)", 5: "hsl(0,80%,55%)" };
+          const GRADE_COLORS: Record<number, string> = { 1: "hsl(156,45%,62%)", 2: "hsl(156,52%,68%)", 3: "hsl(38,68%,68%)", 4: "hsl(38,78%,74%)", 5: "hsl(0,80%,55%)" };
           const level = agent.careerLevel ?? 1;
           const target = agent.targetCareerLevel ?? 1;
           const ambition = agent.ambition ?? 50;
@@ -324,7 +324,7 @@ export default function AgentDetailPage() {
               {/* Salary multiplier + ambition */}
               <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                 <span>Зарплатный множитель: <span className="text-foreground font-medium">×{salaryMult.toFixed(1)}</span></span>
-                <span>Амбиции: <span className="text-[hsl(43,90%,50%)] font-medium">{ambition}</span>/100</span>
+                <span>Амбиции: <span className="text-[hsl(38,72%,72%)] font-medium">{ambition}</span>/100</span>
               </div>
             </div>
           );
@@ -334,17 +334,17 @@ export default function AgentDetailPage() {
         <div className="flex items-start gap-3 pt-1 border-t border-border/30">
           {agent.isRetired ? (
             <div className="flex items-center gap-2 text-xs">
-              <Sunset className="w-4 h-4 text-[hsl(43,100%,50%)] shrink-0" />
+              <Sunset className="w-4 h-4 text-[hsl(38,78%,74%)] shrink-0" />
               <div>
-                <span className="text-[hsl(43,100%,50%)] font-medium">На пенсии</span>
+                <span className="text-[hsl(38,78%,74%)] font-medium">На пенсии</span>
                 <p className="text-muted-foreground mt-0.5">Завершил трудовую деятельность</p>
               </div>
             </div>
           ) : agent.employerId != null ? (
             <div className="flex-1">
               <div className="flex items-center gap-2 text-xs mb-2">
-                <Briefcase className="w-3.5 h-3.5 text-[hsl(173,80%,40%)] shrink-0" />
-                <span className="font-medium text-[hsl(173,80%,40%)]">Работает</span>
+                <Briefcase className="w-3.5 h-3.5 text-[hsl(156,52%,70%)] shrink-0" />
+                <span className="font-medium text-[hsl(156,52%,70%)]">Работает</span>
               </div>
               <p className="text-sm font-medium text-foreground">{agent.employerName ?? `Бизнес #${agent.employerId}`}</p>
               {agent.jobTenure != null && (
@@ -369,7 +369,7 @@ export default function AgentDetailPage() {
             <p className="text-[10px] text-muted-foreground">мест работы</p>
           </div>
           <div className="text-center">
-            <p className="text-lg font-bold text-[hsl(43,100%,50%)]">{agent.promotions ?? 0}</p>
+            <p className="text-lg font-bold text-[hsl(38,78%,74%)]">{agent.promotions ?? 0}</p>
             <p className="text-[10px] text-muted-foreground">повышений</p>
           </div>
           <div className="text-center">
@@ -419,20 +419,20 @@ export default function AgentDetailPage() {
               return (
                 <div key={i} className="flex items-start gap-3 py-2 border-b border-border/30 last:border-0">
                   <div className="mt-0.5 shrink-0">
-                    {isHired      && <LogIn      className="w-3.5 h-3.5 text-[hsl(173,80%,40%)]" />}
+                    {isHired      && <LogIn      className="w-3.5 h-3.5 text-[hsl(156,52%,70%)]" />}
                     {isFired      && <LogOut     className="w-3.5 h-3.5 text-destructive" />}
-                    {isRetiredEvt && <Sunset     className="w-3.5 h-3.5 text-[hsl(43,100%,50%)]" />}
-                    {isQuit       && <DoorOpen   className="w-3.5 h-3.5 text-[hsl(280,80%,60%)]" />}
+                    {isRetiredEvt && <Sunset     className="w-3.5 h-3.5 text-[hsl(38,78%,74%)]" />}
+                    {isQuit       && <DoorOpen   className="w-3.5 h-3.5 text-[hsl(282,52%,78%)]" />}
                     {isPromoted   && <TrendingUp className="w-3.5 h-3.5 text-[hsl(120,60%,45%)]" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn(
                         "text-xs font-medium",
-                        isHired      && "text-[hsl(173,80%,40%)]",
+                        isHired      && "text-[hsl(156,52%,70%)]",
                         isFired      && "text-destructive",
-                        isRetiredEvt && "text-[hsl(43,100%,50%)]",
-                        isQuit       && "text-[hsl(280,80%,60%)]",
+                        isRetiredEvt && "text-[hsl(38,78%,74%)]",
+                        isQuit       && "text-[hsl(282,52%,78%)]",
                         isPromoted   && "text-[hsl(120,60%,45%)]",
                       )}>
                         {isHired ? "Принят на работу" : isFired ? "Уволен" : isRetiredEvt ? "Вышел на пенсию" : isQuit ? "Уволился сам" : "Повышен"}
@@ -467,7 +467,7 @@ export default function AgentDetailPage() {
                 <div className="flex items-center gap-2">
                   <div className="w-20 h-1 bg-muted rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[hsl(173,80%,40%)] rounded-full"
+                      className="h-full bg-[hsl(156,52%,70%)] rounded-full"
                       style={{ width: `${rel.friendshipLevel}%` }}
                     />
                   </div>

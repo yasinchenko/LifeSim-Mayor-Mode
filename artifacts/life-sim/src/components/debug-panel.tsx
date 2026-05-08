@@ -71,9 +71,9 @@ function fmt(n: number, prefix = ""): string {
 
 function Row({ label, value, accent, dimLabel }: { label: string; value: string | number; accent?: "teal" | "amber" | "crimson" | "neutral"; dimLabel?: boolean }) {
   const accentClass = {
-    teal: "text-[hsl(173,80%,40%)]",
-    amber: "text-[hsl(43,100%,50%)]",
-    crimson: "text-[hsl(348,83%,47%)]",
+    teal: "text-[hsl(156,52%,70%)]",
+    amber: "text-[hsl(38,78%,74%)]",
+    crimson: "text-[hsl(351,72%,75%)]",
     neutral: "text-foreground",
   }[accent ?? "neutral"];
 
@@ -87,16 +87,16 @@ function Row({ label, value, accent, dimLabel }: { label: string; value: string 
 
 function Section({ title, children, color = "teal" }: { title: string; children: React.ReactNode; color?: "teal" | "amber" | "crimson" | "blue" }) {
   const borderColor = {
-    teal: "border-[hsl(173,80%,40%)]/30",
-    amber: "border-[hsl(43,100%,50%)]/30",
-    crimson: "border-[hsl(348,83%,47%)]/30",
-    blue: "border-[hsl(210,100%,56%)]/30",
+    teal: "border-[hsl(156,52%,70%)]/30",
+    amber: "border-[hsl(38,78%,74%)]/30",
+    crimson: "border-[hsl(351,72%,75%)]/30",
+    blue: "border-[hsl(232,67%,79%)]/30",
   }[color];
   const textColor = {
-    teal: "text-[hsl(173,80%,40%)]",
-    amber: "text-[hsl(43,100%,50%)]",
-    crimson: "text-[hsl(348,83%,47%)]",
-    blue: "text-[hsl(210,100%,56%)]",
+    teal: "text-[hsl(156,52%,70%)]",
+    amber: "text-[hsl(38,78%,74%)]",
+    crimson: "text-[hsl(351,72%,75%)]",
+    blue: "text-[hsl(232,67%,79%)]",
   }[color];
 
   return (
@@ -132,7 +132,7 @@ export default function DebugPanel({ running }: { running: boolean }) {
         className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-secondary/30 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Bug className="w-3.5 h-3.5 text-[hsl(173,80%,40%)]" />
+          <Bug className="w-3.5 h-3.5 text-[hsl(156,52%,70%)]" />
           <span className="text-[11px] font-mono font-semibold text-muted-foreground tracking-wider uppercase">
             Debug Tick Report
           </span>

@@ -13,8 +13,9 @@ import {
   useUpdateConfig,
 } from "@workspace/api-client-react";
 import { toast } from "sonner";
-import { Flag, Play, RotateCcw, Save, Square } from "lucide-react";
+import { Flag, Languages, Play, RotateCcw, Save, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/language-context";
 
 function getApiErrorMessage(err: unknown): string {
   if (err && typeof err === "object") {
@@ -62,18 +63,21 @@ const SCENARIOS = [
 const GOALS = [
   { value: "balanced", label: "Баланс интересов", description: "Довести жителей, бизнес и власть до поддержки 70+." },
   { value: "crisis_recovery", label: "Выход из кризиса", description: "Вернуть бюджет, занятость и настроение в устойчивую зону." },
-  { value: "economic_growth", label: "Рост экономики", description: "Поднять ВВП, прибыльность бизнеса и занятость." },
-  { value: "social_stability", label: "Стабильный город", description: "Удержать население, здоровье и доверие жителей." },
+  { value: "market_growth", label: "Рыночная стратегия", description: "Поднять ВВП, прибыльность бизнеса и занятость через рынок." },
+  { value: "social_stability", label: "Социальная стратегия", description: "Удержать население, здоровье и доверие жителей." },
+  { value: "force_order", label: "Силовая стратегия", description: "Стабилизировать безопасность и управляемость без обвала доверия." },
+  { value: "corruption_network", label: "Коррупционная стратегия", description: "Быстро собрать бюджет и подрядчиков, удержав доверие выше критической зоны." },
 ] as const;
 
 export default function SettingsPage() {
   const qc = useQueryClient();
   const [, setLocation] = useLocation();
+  const { language, setLanguage, t } = useLanguage();
   const [values, setValues] = useState<Record<string, number>>({});
   const [dirty, setDirty] = useState(false);
   const [scenarioType, setScenarioType] = useState<(typeof SCENARIOS)[number]["value"]>("balanced");
   const [goalType, setGoalType] = useState<(typeof GOALS)[number]["value"]>("balanced");
-  const [dayLimit, setDayLimit] = useState(30);
+  const [dayLimit, setDayLimit] = useState(32);
 
   const { data: config, isLoading: configLoading } = useGetConfig({
     query: { queryKey: getGetConfigQueryKey() },
@@ -142,7 +146,7 @@ export default function SettingsPage() {
       onSuccess: () => {
         qc.invalidateQueries();
         toast.success("Симуляция сброшена");
-        setTimeout(() => setLocation("/"), 1000);
+        setTimeout(() => setLocation("/city"), 1000);
       },
       onError: err => toast.error(`Ошибка сброса: ${getApiErrorMessage(err)}`),
     },
@@ -153,7 +157,7 @@ export default function SettingsPage() {
       onSuccess: () => {
         qc.invalidateQueries();
         toast.success("Новая партия запущена");
-        setTimeout(() => setLocation("/"), 800);
+        setTimeout(() => setLocation("/city"), 800);
       },
       onError: err => toast.error(`Не удалось запустить новую партию: ${getApiErrorMessage(err)}`),
     },
@@ -179,6 +183,31 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-base font-semibold text-foreground">Управление игрой</h1>
         <p className="text-xs text-muted-foreground mt-0.5">Настройки симуляции, запуск и новая партия</p>
+      </div>
+
+      <div className="bg-card border border-card-border rounded p-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Languages className="w-4 h-4 text-primary" />
+          <div>
+            <h2 className="text-xs font-semibold text-foreground">{t.menu.language}</h2>
+            <p className="text-[10px] text-muted-foreground mt-0.5">RU / EN</p>
+          </div>
+        </div>
+        <div className="inline-flex items-center rounded border border-border bg-black/20 p-1">
+          {(["ru", "en"] as const).map(item => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setLanguage(item)}
+              className={cn(
+                "rounded px-3 py-1.5 text-xs font-semibold uppercase",
+                language === item ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="bg-card border border-card-border rounded p-4 space-y-4">
@@ -229,10 +258,10 @@ export default function SettingsPage() {
           <div className={cn(
             "flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border",
             running
-              ? "bg-[hsl(173,80%,40%)]/10 border-[hsl(173,80%,40%)]/30 text-[hsl(173,80%,40%)]"
-              : "bg-[hsl(348,83%,47%)]/10 border-[hsl(348,83%,47%)]/30 text-[hsl(348,83%,47%)]"
+              ? "bg-[hsl(156,52%,70%)]/10 border-[hsl(156,52%,70%)]/30 text-[hsl(156,52%,70%)]"
+              : "bg-[hsl(351,72%,75%)]/10 border-[hsl(351,72%,75%)]/30 text-[hsl(351,72%,75%)]"
           )}>
-            <span className={cn("w-1.5 h-1.5 rounded-full", running ? "bg-[hsl(173,80%,40%)] animate-pulse" : "bg-[hsl(348,83%,47%)]")} />
+            <span className={cn("w-1.5 h-1.5 rounded-full", running ? "bg-[hsl(156,52%,70%)] animate-pulse" : "bg-[hsl(351,72%,75%)]")} />
             {running ? "Работает" : "Остановлена"}
           </div>
 
@@ -331,7 +360,7 @@ export default function SettingsPage() {
       </div>
 
       {dirty && (
-        <div className="bg-[hsl(43,100%,50%)]/10 border border-[hsl(43,100%,50%)]/30 rounded p-3 text-xs text-[hsl(43,100%,50%)]">
+        <div className="bg-[hsl(38,78%,74%)]/10 border border-[hsl(38,78%,74%)]/30 rounded p-3 text-xs text-[hsl(38,78%,74%)]">
           Есть несохранённые изменения. Нажмите «Применить», чтобы они вступили в силу.
         </div>
       )}

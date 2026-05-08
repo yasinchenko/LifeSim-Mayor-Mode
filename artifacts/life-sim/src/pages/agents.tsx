@@ -40,12 +40,12 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const ACTION_COLORS: Record<string, string> = {
-  eat: "text-[hsl(43,100%,50%)]",
-  rest: "text-[hsl(173,80%,40%)]",
+  eat: "text-[hsl(38,78%,74%)]",
+  rest: "text-[hsl(156,52%,70%)]",
   sleep: "text-[hsl(220,70%,60%)]",
   heal: "text-[hsl(0,80%,60%)]",
-  socialize: "text-[hsl(280,80%,60%)]",
-  work: "text-[hsl(210,100%,50%)]",
+  socialize: "text-[hsl(282,52%,78%)]",
+  work: "text-[hsl(232,67%,79%)]",
   idle: "text-muted-foreground",
   study: "text-[hsl(270,70%,60%)]",
   relax: "text-[hsl(120,60%,45%)]",
@@ -53,12 +53,12 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 const ACTION_BG: Record<string, string> = {
-  eat: "bg-[hsl(43,100%,50%)]",
-  rest: "bg-[hsl(173,80%,40%)]",
+  eat: "bg-[hsl(38,78%,74%)]",
+  rest: "bg-[hsl(156,52%,70%)]",
   sleep: "bg-[hsl(220,70%,60%)]",
   heal: "bg-[hsl(0,80%,60%)]",
-  socialize: "bg-[hsl(280,80%,60%)]",
-  work: "bg-[hsl(210,100%,50%)]",
+  socialize: "bg-[hsl(282,52%,78%)]",
+  work: "bg-[hsl(232,67%,79%)]",
   idle: "bg-muted-foreground/50",
   study: "bg-[hsl(270,70%,60%)]",
   relax: "bg-[hsl(120,60%,45%)]",
@@ -110,32 +110,32 @@ interface NeedsStats {
 }
 
 const NEED_META: { key: keyof NeedsStats; label: string; color: string }[] = [
-  { key: "hunger",          label: "Голод",               color: "hsl(43,100%,50%)"  },
-  { key: "health",          label: "Здоровье",            color: "hsl(348,83%,52%)"  },
+  { key: "hunger",          label: "Голод",               color: "hsl(38,78%,74%)"  },
+  { key: "health",          label: "Здоровье",            color: "hsl(351,72%,75%)"  },
   { key: "sleep",           label: "Сон",                 color: "hsl(220,70%,60%)"  },
-  { key: "comfort",         label: "Комфорт",             color: "hsl(173,80%,40%)"  },
-  { key: "social",          label: "Общение",             color: "hsl(280,80%,60%)"  },
+  { key: "comfort",         label: "Комфорт",             color: "hsl(156,52%,70%)"  },
+  { key: "social",          label: "Общение",             color: "hsl(282,52%,78%)"  },
   { key: "financialSafety", label: "Фин. безопасность",   color: "hsl(160,60%,45%)"  },
   { key: "physicalSafety",  label: "Физ. безопасность",   color: "hsl(0,70%,55%)"    },
   { key: "housingSafety",   label: "Безопасность жилья",  color: "hsl(25,90%,55%)"   },
   { key: "entertainment",   label: "Развлечения",         color: "hsl(120,55%,45%)"  },
   { key: "education",       label: "Образование",         color: "hsl(270,70%,60%)"  },
   { key: "faith",           label: "Вера",                color: "hsl(35,90%,55%)"   },
-  { key: "socialRating",    label: "Соц. рейтинг",        color: "hsl(210,100%,55%)" },
+  { key: "socialRating",    label: "Соц. рейтинг",        color: "hsl(232,67%,79%)" },
   { key: "wellbeing",       label: "Благосостояние",      color: "hsl(170,70%,45%)"  },
 ];
 
 function needBarColor(avg: number): string {
-  if (avg < 25) return "hsl(348,83%,52%)";
-  if (avg < 50) return "hsl(43,100%,50%)";
-  if (avg < 75) return "hsl(173,80%,40%)";
+  if (avg < 25) return "hsl(351,72%,75%)";
+  if (avg < 50) return "hsl(38,78%,74%)";
+  if (avg < 75) return "hsl(156,52%,70%)";
   return "hsl(142,70%,45%)";
 }
 
 function needStatusLabel(avg: number): { text: string; cls: string } {
-  if (avg < 25) return { text: "критично",   cls: "text-[hsl(348,83%,52%)]" };
-  if (avg < 50) return { text: "низко",      cls: "text-[hsl(43,100%,50%)]" };
-  if (avg < 75) return { text: "норма",      cls: "text-[hsl(173,80%,40%)]" };
+  if (avg < 25) return { text: "критично",   cls: "text-[hsl(351,72%,75%)]" };
+  if (avg < 50) return { text: "низко",      cls: "text-[hsl(38,78%,74%)]" };
+  if (avg < 75) return { text: "норма",      cls: "text-[hsl(156,52%,70%)]" };
   return              { text: "хорошо",     cls: "text-[hsl(142,70%,45%)]" };
 }
 
@@ -144,9 +144,9 @@ type NonNumericStatConfig = { numeric: false };
 type SortStatConfig = NumericStatConfig | NonNumericStatConfig;
 
 const SORT_STAT_CONFIG: Record<SortBy, SortStatConfig> = {
-  money:         { numeric: true,  historyKey: "money", color: "hsl(173,80%,40%)" },
-  mood:          { numeric: true,  historyKey: "mood",  color: "hsl(43,100%,50%)" },
-  age:           { numeric: true,  historyKey: "age",   color: "hsl(210,100%,60%)" },
+  money:         { numeric: true,  historyKey: "money", color: "hsl(156,52%,70%)" },
+  mood:          { numeric: true,  historyKey: "mood",  color: "hsl(38,78%,74%)" },
+  age:           { numeric: true,  historyKey: "age",   color: "hsl(232,67%,82%)" },
   name:          { numeric: false },
   currentAction: { numeric: false },
 };
@@ -209,7 +209,7 @@ function SparklineTooltip({ history, statKey, color, agentName }: {
         <span className="text-[9px] text-muted-foreground">
           {typeof firstVal === "number" ? (Number.isInteger(firstVal) ? firstVal.toLocaleString() : firstVal.toFixed(1)) : firstVal}
         </span>
-        <span className={cn("text-[9px] font-semibold", trend >= 0 ? "text-[hsl(173,80%,40%)]" : "text-[hsl(348,83%,47%)]")}>
+        <span className={cn("text-[9px] font-semibold", trend >= 0 ? "text-[hsl(156,52%,70%)]" : "text-[hsl(351,72%,75%)]")}>
           {trend >= 0 ? "+" : ""}{typeof trend === "number" ? (Number.isInteger(trend) ? Math.round(trend).toLocaleString() : trend.toFixed(1)) : trend}
         </span>
         <span className="text-[9px] text-muted-foreground">
@@ -362,8 +362,8 @@ export default function AgentsPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-base font-semibold text-foreground">Жители</h1>
             {running && (
-              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wider bg-[hsl(173,80%,40%)]/15 text-[hsl(173,80%,40%)] border border-[hsl(173,80%,40%)]/25">
-                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(173,80%,40%)] animate-pulse inline-block" />
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wider bg-[hsl(156,52%,70%)]/15 text-[hsl(156,52%,70%)] border border-[hsl(156,52%,70%)]/25">
+                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(156,52%,70%)] animate-pulse inline-block" />
                 LIVE
               </span>
             )}
@@ -403,10 +403,10 @@ export default function AgentsPage() {
           {groupData && (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <SummaryCard label="Всего жителей" value={groupData.total.toLocaleString()} color="hsl(173,80%,40%)" />
-                <SummaryCard label="Групп" value={String(groupData.groups.length)} color="hsl(43,100%,50%)" />
-                <SummaryCard label="Ср. богатство" value={groupData.total > 0 ? Math.round(groupData.groups.reduce((s, g) => s + g.avgMoney * g.count, 0) / groupData.total).toLocaleString() : "—"} color="hsl(210,100%,55%)" />
-                <SummaryCard label="Ср. настроение" value={groupData.total > 0 ? (groupData.groups.reduce((s, g) => s + g.avgMood * g.count, 0) / groupData.total).toFixed(1) : "—"} color="hsl(280,80%,62%)" />
+                <SummaryCard label="Всего жителей" value={groupData.total.toLocaleString()} color="hsl(156,52%,70%)" />
+                <SummaryCard label="Групп" value={String(groupData.groups.length)} color="hsl(38,78%,74%)" />
+                <SummaryCard label="Ср. богатство" value={groupData.total > 0 ? Math.round(groupData.groups.reduce((s, g) => s + g.avgMoney * g.count, 0) / groupData.total).toLocaleString() : "—"} color="hsl(232,67%,79%)" />
+                <SummaryCard label="Ср. настроение" value={groupData.total > 0 ? (groupData.groups.reduce((s, g) => s + g.avgMood * g.count, 0) / groupData.total).toFixed(1) : "—"} color="hsl(282,52%,78%)" />
               </div>
 
               <div className="bg-card border border-card-border rounded overflow-hidden">
@@ -446,7 +446,7 @@ export default function AgentsPage() {
                           <td className="px-3 py-2.5 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden hidden sm:block">
-                                <div className="h-full bg-[hsl(173,80%,40%)] rounded-full" style={{ width: `${group.pct}%` }} />
+                                <div className="h-full bg-[hsl(156,52%,70%)] rounded-full" style={{ width: `${group.pct}%` }} />
                               </div>
                               <span className="text-muted-foreground tabular-nums">{group.pct}%</span>
                             </div>
@@ -459,7 +459,7 @@ export default function AgentsPage() {
                                   style={{ width: `${group.avgMood}%`, background: `hsl(${43 + (group.avgMood - 50) * 1.3},100%,50%)` }}
                                 />
                               </div>
-                              <span className={cn("tabular-nums font-medium", group.avgMood >= 80 ? "text-[hsl(173,80%,40%)]" : group.avgMood >= 50 ? "text-[hsl(43,100%,50%)]" : "text-[hsl(348,83%,52%)]")}>
+                              <span className={cn("tabular-nums font-medium", group.avgMood >= 80 ? "text-[hsl(156,52%,70%)]" : group.avgMood >= 50 ? "text-[hsl(38,78%,74%)]" : "text-[hsl(351,72%,75%)]")}>
                                 {group.avgMood}
                               </span>
                             </div>
@@ -468,7 +468,7 @@ export default function AgentsPage() {
                             <div className="flex items-center justify-end gap-2">
                               <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden hidden sm:block">
                                 <div
-                                  className="h-full bg-[hsl(210,100%,55%)] rounded-full"
+                                  className="h-full bg-[hsl(232,67%,79%)] rounded-full"
                                   style={{ width: `${maxMoney > 0 ? (group.avgMoney / maxMoney) * 100 : 0}%` }}
                                 />
                               </div>
@@ -477,7 +477,7 @@ export default function AgentsPage() {
                           </td>
                           <td className="px-3 py-2.5 text-right text-muted-foreground tabular-nums">{group.avgAge}</td>
                           <td className="px-3 py-2.5 text-right">
-                            <span className={cn("tabular-nums", employedPct >= 60 ? "text-[hsl(173,80%,40%)]" : employedPct >= 30 ? "text-[hsl(43,100%,50%)]" : "text-[hsl(348,83%,52%)]")}>
+                            <span className={cn("tabular-nums", employedPct >= 60 ? "text-[hsl(156,52%,70%)]" : employedPct >= 30 ? "text-[hsl(38,78%,74%)]" : "text-[hsl(351,72%,75%)]")}>
                               {group.employedCount} <span className="text-muted-foreground font-normal">({employedPct}%)</span>
                             </span>
                           </td>
@@ -503,7 +503,7 @@ export default function AgentsPage() {
                       <span className="text-xs text-muted-foreground w-32 shrink-0 truncate">{group.label}</span>
                       <div className="flex-1 h-4 bg-muted/40 rounded overflow-hidden">
                         <div
-                          className={cn("h-full rounded transition-all duration-500", ACTION_BG[group.topActionKey] ?? "bg-[hsl(210,100%,55%)]")}
+                          className={cn("h-full rounded transition-all duration-500", ACTION_BG[group.topActionKey] ?? "bg-[hsl(232,67%,79%)]")}
                           style={{ width: `${maxMoney > 0 ? (group.avgMoney / maxMoney) * 100 : 0}%`, opacity: 0.75 }}
                         />
                       </div>
@@ -578,12 +578,12 @@ function NeedsPanel({ stats }: { stats: NeedsStats }) {
             </span>
           </span>
           {criticalCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[hsl(348,83%,52%)]/15 text-[hsl(348,83%,52%)] border border-[hsl(348,83%,52%)]/25">
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[hsl(351,72%,75%)]/15 text-[hsl(351,72%,75%)] border border-[hsl(351,72%,75%)]/25">
               {criticalCount} крит.
             </span>
           )}
           {lowCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[hsl(43,100%,50%)]/15 text-[hsl(43,100%,50%)] border border-[hsl(43,100%,50%)]/25">
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[hsl(38,78%,74%)]/15 text-[hsl(38,78%,74%)] border border-[hsl(38,78%,74%)]/25">
               {lowCount} низко
             </span>
           )}
@@ -616,12 +616,12 @@ function NeedsPanel({ stats }: { stats: NeedsStats }) {
                     {status.text}
                   </span>
                   {s.criticalPct > 0 && (
-                    <span className="hidden sm:inline text-[10px] text-[hsl(348,83%,52%)] tabular-nums w-12 text-right shrink-0">
+                    <span className="hidden sm:inline text-[10px] text-[hsl(351,72%,75%)] tabular-nums w-12 text-right shrink-0">
                       {s.criticalPct}% крит
                     </span>
                   )}
                   {s.criticalPct === 0 && s.lowPct > 0 && (
-                    <span className="hidden sm:inline text-[10px] text-[hsl(43,100%,50%)] tabular-nums w-12 text-right shrink-0">
+                    <span className="hidden sm:inline text-[10px] text-[hsl(38,78%,74%)] tabular-nums w-12 text-right shrink-0">
                       {s.lowPct}% низко
                     </span>
                   )}
@@ -673,7 +673,7 @@ function AgentRow({
         <div className="flex items-center gap-2">
           <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
             <div
-              className="h-full bg-[hsl(43,100%,50%)] rounded-full"
+              className="h-full bg-[hsl(38,78%,74%)] rounded-full"
               style={{ width: `${agent.mood}%` }}
             />
           </div>

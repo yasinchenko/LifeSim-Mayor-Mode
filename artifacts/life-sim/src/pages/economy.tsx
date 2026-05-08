@@ -32,8 +32,8 @@ const TYPE_LABELS: Record<string, string> = {
   temple: "Храм",
 };
 const TYPE_COLORS: Record<string, string> = {
-  food: "text-[hsl(43,100%,50%)]",
-  service: "text-[hsl(173,80%,40%)]",
+  food: "text-[hsl(38,78%,74%)]",
+  service: "text-[hsl(156,52%,70%)]",
   hospital: "text-[hsl(0,80%,60%)]",
   farm: "text-[hsl(84,70%,45%)]",
   workshop: "text-[hsl(200,80%,50%)]",
@@ -179,8 +179,8 @@ export default function EconomyPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-base font-semibold text-foreground">Экономика</h1>
             {running && (
-              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wider bg-[hsl(173,80%,40%)]/15 text-[hsl(173,80%,40%)] border border-[hsl(173,80%,40%)]/25">
-                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(173,80%,40%)] animate-pulse inline-block" />
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wider bg-[hsl(156,52%,70%)]/15 text-[hsl(156,52%,70%)] border border-[hsl(156,52%,70%)]/25">
+                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(156,52%,70%)] animate-pulse inline-block" />
                 LIVE
               </span>
             )}
@@ -193,15 +193,15 @@ export default function EconomyPage() {
 
       <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <SmCard label="Прибыльных бизнесов" value={`${summaryStats.profitable} / ${businesses?.length ?? 0}`} color="hsl(173,80%,40%)" />
-            <SmCard label="Общий баланс рынка" value={summaryStats.totalBal.toLocaleString()} color={summaryStats.totalBal >= 0 ? "hsl(173,80%,40%)" : "hsl(348,83%,52%)"} />
-            <SmCard label="Дефицит (спрос/пред.)" value={summaryStats.mostShort ? `${summaryStats.mostShort.name} ×${summaryStats.mostShort.ratio.toFixed(1)}` : "—"} color="hsl(348,83%,52%)" />
+            <SmCard label="Прибыльных бизнесов" value={`${summaryStats.profitable} / ${businesses?.length ?? 0}`} color="hsl(156,52%,70%)" />
+            <SmCard label="Общий баланс рынка" value={summaryStats.totalBal.toLocaleString()} color={summaryStats.totalBal >= 0 ? "hsl(156,52%,70%)" : "hsl(351,72%,75%)"} />
+            <SmCard label="Дефицит (спрос/пред.)" value={summaryStats.mostShort ? `${summaryStats.mostShort.name} ×${summaryStats.mostShort.ratio.toFixed(1)}` : "—"} color="hsl(351,72%,75%)" />
           </div>
           {/* Quality summary row */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <SmCard label="Ср. качество товаров" value={summaryStats.avgQuality.toFixed(1)} color={summaryStats.avgQuality > 70 ? "hsl(173,80%,40%)" : summaryStats.avgQuality > 40 ? "hsl(43,100%,50%)" : "hsl(348,83%,52%)"} />
-            <SmCard label="Лучший товар (качество)" value={summaryStats.topQuality ? `${summaryStats.topQuality.name} — ${summaryStats.topQuality.quality.toFixed(1)}` : "—"} color="hsl(173,80%,40%)" />
-            <SmCard label="Самый востребованный" value={summaryStats.mostDemanded?.name ?? "—"} color="hsl(43,100%,50%)" />
+            <SmCard label="Ср. качество товаров" value={summaryStats.avgQuality.toFixed(1)} color={summaryStats.avgQuality > 70 ? "hsl(156,52%,70%)" : summaryStats.avgQuality > 40 ? "hsl(38,78%,74%)" : "hsl(351,72%,75%)"} />
+            <SmCard label="Лучший товар (качество)" value={summaryStats.topQuality ? `${summaryStats.topQuality.name} — ${summaryStats.topQuality.quality.toFixed(1)}` : "—"} color="hsl(156,52%,70%)" />
+            <SmCard label="Самый востребованный" value={summaryStats.mostDemanded?.name ?? "—"} color="hsl(38,78%,74%)" />
           </div>
 
           <div className="bg-card border border-card-border rounded overflow-hidden">
@@ -254,9 +254,9 @@ export default function EconomyPage() {
                     <td className="px-3 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden hidden sm:block">
-                          <div className="h-full rounded-full bg-[hsl(173,80%,40%)]" style={{ width: `${g.profitablePct}%` }} />
+                          <div className="h-full rounded-full bg-[hsl(156,52%,70%)]" style={{ width: `${g.profitablePct}%` }} />
                         </div>
-                        <span className={cn("tabular-nums font-medium", g.profitablePct >= 60 ? "text-[hsl(173,80%,40%)]" : g.profitablePct >= 30 ? "text-[hsl(43,100%,50%)]" : "text-[hsl(348,83%,52%)]")}>
+                        <span className={cn("tabular-nums font-medium", g.profitablePct >= 60 ? "text-[hsl(156,52%,70%)]" : g.profitablePct >= 30 ? "text-[hsl(38,78%,74%)]" : "text-[hsl(351,72%,75%)]")}>
                           {g.profitablePct}%
                         </span>
                       </div>
@@ -268,11 +268,11 @@ export default function EconomyPage() {
                             className="h-full absolute right-0 rounded-full"
                             style={{
                               width: `${maxAvgBalance > 0 ? (Math.abs(g.avgBalance) / maxAvgBalance) * 100 : 0}%`,
-                              background: g.avgBalance >= 0 ? "hsl(173,80%,40%)" : "hsl(348,83%,52%)",
+                              background: g.avgBalance >= 0 ? "hsl(156,52%,70%)" : "hsl(351,72%,75%)",
                             }}
                           />
                         </div>
-                        <span className={cn("tabular-nums font-medium", g.avgBalance >= 0 ? "text-[hsl(173,80%,40%)]" : "text-[hsl(348,83%,52%)]")}>
+                        <span className={cn("tabular-nums font-medium", g.avgBalance >= 0 ? "text-[hsl(156,52%,70%)]" : "text-[hsl(351,72%,75%)]")}>
                           {g.avgBalance.toLocaleString()}
                         </span>
                       </div>
@@ -295,13 +295,13 @@ export default function EconomyPage() {
                         className="h-full rounded transition-all duration-500"
                         style={{
                           width: `${maxAvgBalance > 0 ? (Math.abs(g.avgBalance) / maxAvgBalance) * 100 : 0}%`,
-                          background: g.avgBalance >= 0 ? "hsl(173,80%,40%)" : "hsl(348,83%,52%)",
+                          background: g.avgBalance >= 0 ? "hsl(156,52%,70%)" : "hsl(351,72%,75%)",
                           opacity: 0.7,
                         }}
                       />
                     </div>
                   </div>
-                  <span className={cn("text-xs tabular-nums font-medium w-20 text-right shrink-0", g.avgBalance >= 0 ? "text-[hsl(173,80%,40%)]" : "text-[hsl(348,83%,52%)]")}>
+                  <span className={cn("text-xs tabular-nums font-medium w-20 text-right shrink-0", g.avgBalance >= 0 ? "text-[hsl(156,52%,70%)]" : "text-[hsl(351,72%,75%)]")}>
                     {g.avgBalance.toLocaleString()}
                   </span>
                   <span className="text-[10px] text-muted-foreground w-10 text-right shrink-0 hidden sm:block">
@@ -355,11 +355,11 @@ export default function EconomyPage() {
                               className="h-full rounded-full transition-all duration-500"
                               style={{
                                 width: `${g.quality}%`,
-                                background: g.quality > 70 ? "hsl(173,80%,40%)" : g.quality > 40 ? "hsl(43,100%,50%)" : "hsl(348,83%,52%)",
+                                background: g.quality > 70 ? "hsl(156,52%,70%)" : g.quality > 40 ? "hsl(38,78%,74%)" : "hsl(351,72%,75%)",
                               }}
                             />
                           </div>
-                          <span className={cn("tabular-nums font-semibold text-xs", g.quality > 70 ? "text-[hsl(173,80%,40%)]" : g.quality > 40 ? "text-[hsl(43,100%,50%)]" : "text-[hsl(348,83%,52%)]")}>
+                          <span className={cn("tabular-nums font-semibold text-xs", g.quality > 70 ? "text-[hsl(156,52%,70%)]" : g.quality > 40 ? "text-[hsl(38,78%,74%)]" : "text-[hsl(351,72%,75%)]")}>
                             {g.quality.toFixed(1)}
                           </span>
                         </div>
@@ -371,22 +371,22 @@ export default function EconomyPage() {
                               className="h-full rounded-full transition-all duration-300"
                               style={{
                                 width: `${Math.min(g.ratio * 50, 100)}%`,
-                                background: shortage ? "hsl(348,83%,52%)" : surplus ? "hsl(210,100%,55%)" : "hsl(173,80%,40%)",
+                                background: shortage ? "hsl(351,72%,75%)" : surplus ? "hsl(232,67%,79%)" : "hsl(156,52%,70%)",
                               }}
                             />
                           </div>
-                          <span className={cn("tabular-nums font-semibold", shortage ? "text-[hsl(348,83%,52%)]" : surplus ? "text-[hsl(210,100%,55%)]" : "text-[hsl(173,80%,40%)]")}>
+                          <span className={cn("tabular-nums font-semibold", shortage ? "text-[hsl(351,72%,75%)]" : surplus ? "text-[hsl(232,67%,79%)]" : "text-[hsl(156,52%,70%)]")}>
                             {g.ratio >= 999 ? "∞" : g.ratio.toFixed(2)}
                             {shortage && " ↑"}
                             {surplus  && " ↓"}
                           </span>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-[hsl(43,100%,50%)]">{g.demand.toFixed(1)}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-[hsl(210,100%,50%)]">{g.supply.toFixed(1)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-[hsl(38,78%,74%)]">{g.demand.toFixed(1)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-[hsl(232,67%,79%)]">{g.supply.toFixed(1)}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{g.currentPrice.toFixed(2)}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums">
-                        <span className={g.priceDiff > 0 ? "text-[hsl(348,83%,52%)]" : g.priceDiff < 0 ? "text-[hsl(173,80%,40%)]" : "text-muted-foreground"}>
+                        <span className={g.priceDiff > 0 ? "text-[hsl(351,72%,75%)]" : g.priceDiff < 0 ? "text-[hsl(156,52%,70%)]" : "text-muted-foreground"}>
                           {g.priceDiff > 0 ? "+" : ""}{g.priceDiff.toFixed(2)}
                           <span className="text-[9px] ml-1 opacity-70">({g.priceDiffPct > 0 ? "+" : ""}{g.priceDiffPct.toFixed(1)}%)</span>
                         </span>
@@ -415,12 +415,12 @@ export default function EconomyPage() {
             const chains: { rawLabel: string; rawColor: string; rawIcon: React.ReactNode; consLabel: string; consColor: string; consIcon: React.ReactNode; rawBiz: BizItem[]; consBiz: BizItem[] }[] = [
               {
                 rawLabel: "Фермы",     rawColor: "hsl(84,70%,45%)",    rawIcon: <Tractor className="w-3.5 h-3.5" />,
-                consLabel: "Продукты", consColor: "hsl(43,100%,50%)",  consIcon: <Utensils className="w-3.5 h-3.5" />,
+                consLabel: "Продукты", consColor: "hsl(38,78%,74%)",  consIcon: <Utensils className="w-3.5 h-3.5" />,
                 rawBiz: farms, consBiz: foods,
               },
               {
                 rawLabel: "Мастерские", rawColor: "hsl(200,80%,50%)",   rawIcon: <Wrench className="w-3.5 h-3.5" />,
-                consLabel: "Сервис",    consColor: "hsl(173,80%,40%)",  consIcon: <Hammer className="w-3.5 h-3.5" />,
+                consLabel: "Сервис",    consColor: "hsl(156,52%,70%)",  consIcon: <Hammer className="w-3.5 h-3.5" />,
                 rawBiz: workshops, consBiz: services,
               },
             ];
@@ -448,7 +448,7 @@ export default function EconomyPage() {
                               <span className="ml-auto text-[10px] font-mono text-muted-foreground">{chain.rawBiz.length} бизн.</span>
                             </div>
                             <div className="text-[10px] text-muted-foreground">
-                              Ср. баланс: <span className={cn("font-mono font-semibold", rawAvg >= 0 ? "text-[hsl(173,80%,40%)]" : "text-[hsl(348,83%,52%)]")}>{rawAvg.toLocaleString()}</span>
+                              Ср. баланс: <span className={cn("font-mono font-semibold", rawAvg >= 0 ? "text-[hsl(156,52%,70%)]" : "text-[hsl(351,72%,75%)]")}>{rawAvg.toLocaleString()}</span>
                             </div>
                             <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
                               <div className="h-full rounded-full" style={{ width: `${rawProfit}%`, background: chain.rawColor, opacity: 0.8 }} />
@@ -472,7 +472,7 @@ export default function EconomyPage() {
                               <span className="ml-auto text-[10px] font-mono text-muted-foreground">{chain.consBiz.length} бизн.</span>
                             </div>
                             <div className="text-[10px] text-muted-foreground">
-                              Ср. баланс: <span className={cn("font-mono font-semibold", consAvg >= 0 ? "text-[hsl(173,80%,40%)]" : "text-[hsl(348,83%,52%)]")}>{consAvg.toLocaleString()}</span>
+                              Ср. баланс: <span className={cn("font-mono font-semibold", consAvg >= 0 ? "text-[hsl(156,52%,70%)]" : "text-[hsl(351,72%,75%)]")}>{consAvg.toLocaleString()}</span>
                             </div>
                             <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
                               <div className="h-full rounded-full" style={{ width: `${consProfit}%`, background: chain.consColor, opacity: 0.8 }} />
@@ -489,9 +489,9 @@ export default function EconomyPage() {
                           </div>
 
                           {/* End consumer */}
-                          <div className="flex items-center px-4 border border-border rounded-r bg-muted/10" style={{ borderColor: "hsl(173,80%,40%)40" }}>
+                          <div className="flex items-center px-4 border border-border rounded-r bg-muted/10" style={{ borderColor: "hsl(156,52%,70%)40" }}>
                             <div className="text-center space-y-1">
-                              <div className="text-[11px] font-semibold text-[hsl(173,80%,40%)]">Агенты</div>
+                              <div className="text-[11px] font-semibold text-[hsl(156,52%,70%)]">Агенты</div>
                               <div className="text-[9px] text-muted-foreground font-mono">потребители</div>
                             </div>
                           </div>
@@ -549,12 +549,12 @@ function BizTable({ businesses, loading }: { businesses: BizItem[]; loading: boo
           ) : businesses.map(biz => {
             const struggling = biz.balance < 0;
             return (
-              <tr key={biz.id} className={cn("border-b border-border/50 hover:bg-accent/20", struggling && "bg-[hsl(348,83%,47%)]/5")}>
+              <tr key={biz.id} className={cn("border-b border-border/50 hover:bg-accent/20", struggling && "bg-[hsl(351,72%,75%)]/5")}>
                 <td className="px-3 py-2 font-medium text-foreground">
                   <span className="flex items-center gap-1.5">
                     {biz.name}
                     {struggling && (
-                      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold tracking-wider bg-[hsl(348,83%,47%)]/15 text-[hsl(348,83%,47%)] border border-[hsl(348,83%,47%)]/25">
+                      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold tracking-wider bg-[hsl(351,72%,75%)]/15 text-[hsl(351,72%,75%)] border border-[hsl(351,72%,75%)]/25">
                         <TrendingDown className="w-2.5 h-2.5" />
                         УБЫТОК
                       </span>
@@ -564,7 +564,7 @@ function BizTable({ businesses, loading }: { businesses: BizItem[]; loading: boo
                 <td className={cn("px-3 py-2 font-medium", TYPE_COLORS[biz.type] ?? "text-muted-foreground")}>
                   {TYPE_LABELS[biz.type] ?? biz.type}
                 </td>
-                <td className={cn("px-3 py-2 text-right tabular-nums font-medium", struggling ? "text-[hsl(348,83%,47%)]" : "text-[hsl(173,80%,40%)]")}>
+                <td className={cn("px-3 py-2 text-right tabular-nums font-medium", struggling ? "text-[hsl(351,72%,75%)]" : "text-[hsl(156,52%,70%)]")}>
                   {biz.balance.toFixed(0)}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums text-foreground">
@@ -576,12 +576,12 @@ function BizTable({ businesses, loading }: { businesses: BizItem[]; loading: boo
                 <td className="px-3 py-2 text-right">
                   <span className="flex items-center justify-end gap-2">
                     {biz.hiredThisTick > 0 && (
-                      <span className="inline-flex items-center gap-0.5 text-[hsl(173,80%,40%)]">
+                      <span className="inline-flex items-center gap-0.5 text-[hsl(156,52%,70%)]">
                         <UserPlus className="w-3 h-3" />{biz.hiredThisTick}
                       </span>
                     )}
                     {biz.firedThisTick > 0 && (
-                      <span className="inline-flex items-center gap-0.5 text-[hsl(348,83%,47%)]">
+                      <span className="inline-flex items-center gap-0.5 text-[hsl(351,72%,75%)]">
                         <UserMinus className="w-3 h-3" />{biz.firedThisTick}
                       </span>
                     )}
@@ -648,10 +648,10 @@ function GoodsTable({ goods, loading }: { goods: GoodItem[]; loading: boolean })
                 <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{good.basePrice.toFixed(2)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">
                   <div className="flex items-center justify-end gap-1">
-                    <span className={isUp ? "text-[hsl(348,83%,47%)]" : isDown ? "text-[hsl(173,80%,40%)]" : "text-foreground"}>
+                    <span className={isUp ? "text-[hsl(351,72%,75%)]" : isDown ? "text-[hsl(156,52%,70%)]" : "text-foreground"}>
                       {good.currentPrice.toFixed(2)}
                     </span>
-                    <span className={`text-[10px] font-medium tabular-nums ${isUp ? "text-[hsl(348,83%,47%)]" : isDown ? "text-[hsl(173,80%,40%)]" : "text-muted-foreground"}`}>
+                    <span className={`text-[10px] font-medium tabular-nums ${isUp ? "text-[hsl(351,72%,75%)]" : isDown ? "text-[hsl(156,52%,70%)]" : "text-muted-foreground"}`}>
                       {isUp ? "▲" : isDown ? "▼" : "–"}{Math.abs(pricePct).toFixed(1)}%
                     </span>
                   </div>
@@ -659,18 +659,18 @@ function GoodsTable({ goods, loading }: { goods: GoodItem[]; loading: boolean })
                 <td className="px-3 py-2 text-right">
                   <div className="flex items-center justify-end gap-1.5">
                     <div className="w-10 h-1.5 bg-muted rounded-full overflow-hidden hidden sm:block">
-                      <div className="h-full rounded-full" style={{ width: `${good.quality}%`, background: good.quality > 70 ? "hsl(173,80%,40%)" : good.quality > 40 ? "hsl(43,100%,50%)" : "hsl(348,83%,52%)" }} />
+                      <div className="h-full rounded-full" style={{ width: `${good.quality}%`, background: good.quality > 70 ? "hsl(156,52%,70%)" : good.quality > 40 ? "hsl(38,78%,74%)" : "hsl(351,72%,75%)" }} />
                     </div>
-                    <span className={cn("tabular-nums text-xs", good.quality > 70 ? "text-[hsl(173,80%,40%)]" : good.quality > 40 ? "text-[hsl(43,100%,50%)]" : "text-[hsl(348,83%,52%)]")}>
+                    <span className={cn("tabular-nums text-xs", good.quality > 70 ? "text-[hsl(156,52%,70%)]" : good.quality > 40 ? "text-[hsl(38,78%,74%)]" : "text-[hsl(351,72%,75%)]")}>
                       {good.quality.toFixed(1)}
                     </span>
                   </div>
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums text-[hsl(43,100%,50%)]">
+                <td className="px-3 py-2 text-right tabular-nums text-[hsl(38,78%,74%)]">
                   {good.demand.toFixed(1)}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">
-                  <span className={demandSupplyRatio > 1.5 ? "text-[hsl(348,83%,47%)]" : demandSupplyRatio < 0.7 ? "text-[hsl(173,80%,40%)]" : "text-[hsl(210,100%,50%)]"}>
+                  <span className={demandSupplyRatio > 1.5 ? "text-[hsl(351,72%,75%)]" : demandSupplyRatio < 0.7 ? "text-[hsl(156,52%,70%)]" : "text-[hsl(232,67%,79%)]"}>
                     {good.supply.toFixed(1)}
                   </span>
                 </td>

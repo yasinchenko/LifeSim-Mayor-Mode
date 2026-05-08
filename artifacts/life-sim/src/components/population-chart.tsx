@@ -20,11 +20,11 @@ const VIEW_MODES: { key: ViewMode; label: string }[] = [
   { key: "action",     label: "Действие" },
 ];
 
-const TEAL    = "hsl(173,80%,38%)";
-const AMBER   = "hsl(43,100%,50%)";
-const CRIMSON = "hsl(348,83%,52%)";
-const BLUE    = "hsl(210,100%,55%)";
-const PURPLE  = "hsl(280,80%,62%)";
+const TEAL    = "hsl(156,52%,68%)";
+const AMBER   = "hsl(38,78%,74%)";
+const CRIMSON = "hsl(351,72%,75%)";
+const BLUE    = "hsl(232,67%,79%)";
+const PURPLE  = "hsl(282,52%,78%)";
 const SLATE   = "hsl(210,20%,48%)";
 
 function buildSlices(mode: ViewMode, data: PopulationBreakdown) {
@@ -127,8 +127,8 @@ export default function PopulationChart({ running }: { running: boolean }) {
           Структура населения
         </h3>
         {running && (
-          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wider bg-[hsl(173,80%,40%)]/15 text-[hsl(173,80%,40%)] border border-[hsl(173,80%,40%)]/25">
-            <span className="w-1.5 h-1.5 rounded-full bg-[hsl(173,80%,40%)] animate-pulse inline-block" />
+          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wider bg-[hsl(156,52%,70%)]/15 text-[hsl(156,52%,70%)] border border-[hsl(156,52%,70%)]/25">
+            <span className="w-1.5 h-1.5 rounded-full bg-[hsl(156,52%,70%)] animate-pulse inline-block" />
             LIVE
           </span>
         )}

@@ -142,13 +142,32 @@ interface SimState {
 }
 
 type ScenarioType = "balanced" | "crisis" | "growth" | "stability";
-type GoalType = "balanced" | "crisis_recovery" | "economic_growth" | "social_stability";
+type GoalType =
+  | "balanced"
+  | "crisis_recovery"
+  | "economic_growth"
+  | "market_growth"
+  | "social_stability"
+  | "force_order"
+  | "corruption_network";
 type GameStatus = "active" | "victory" | "defeat";
 
 interface NewGameOptions {
   scenarioType: ScenarioType;
   goalType: GoalType;
   dayLimit: number;
+}
+
+interface SaveSlotSummary {
+  tick: number;
+  gameDay: number;
+  gameHour: number;
+  scenarioType: ScenarioType;
+  goalType: GoalType;
+  gameStatus: GameStatus;
+  goalProgress: number;
+  population: number;
+  governmentBudget: number;
 }
 
 interface GoalEvaluation {
@@ -176,6 +195,7 @@ type DecisionEffectKind =
   | "subsidy_multiplier"
   | "daily_need_delta"
   | "daily_business_delta"
+  | "budget_delta"
   | "public_quality_delta"
   | "food_supply_delta";
 
@@ -911,6 +931,78 @@ const DAILY_DECISION_CATALOG: DailyDecisionDefinition[] = [
       },
     ],
   },
+  {
+    id: "government_hardline_patrols",
+    title: "Жесткий порядок",
+    side: "government",
+    sideLabel: "Государство",
+    category: "safety",
+    activity: "crisis_staff",
+    responseLabel: "Развернуть силовые патрули",
+    description: "Мэрия резко усиливает патрули, комендантские обходы и быстрые проверки опасных точек.",
+    impactSummary: "+безопасность, +управляемость, -доверие",
+    tradeoff: "Порядок приходит быстро, но часть жителей воспринимает контроль как давление, а сервис теряет вечерний спрос.",
+    actionPointCost: 1,
+    budgetCost: 900,
+    cooldownDays: 3,
+    delayDays: 0,
+    durationDays: 3,
+    effects: [
+      { kind: "daily_need_delta", need: "physicalSafety", label: "Физическая безопасность заметно растет", value: 1.15 },
+      { kind: "daily_need_delta", need: "housingSafety", label: "Дворы и подъезды контролируются плотнее", value: 0.9 },
+      { kind: "social_multiplier", label: "Конфликты гасятся быстрее", value: 1.03 },
+      { kind: "daily_business_delta", businessType: "service", label: "Сервис теряет часть вечернего оборота", value: -28 },
+    ],
+    sideEffects: [
+      {
+        title: "Усталость от жесткого контроля",
+        description: "После силовых мер жители несколько дней хуже оценивают власть и осторожнее тратят деньги.",
+        delayDays: 3,
+        durationDays: 4,
+        effects: [
+          { kind: "daily_need_delta", need: "socialRating", label: "Доверие проседает после жестких патрулей", value: -0.32 },
+          { kind: "daily_need_delta", need: "wellbeing", label: "Общее напряжение остается выше нормы", value: -0.18 },
+          { kind: "daily_business_delta", businessType: "service", label: "Вечерний спрос восстанавливается медленно", value: -16 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "government_shadow_contracts",
+    title: "Серые подрядчики",
+    side: "government",
+    sideLabel: "Государство",
+    category: "economy",
+    activity: "budget_session",
+    responseLabel: "Провести непубличные контракты",
+    description: "Мэрия быстро привлекает лояльных подрядчиков и закрывает кассовый разрыв вне прозрачных процедур.",
+    impactSummary: "+бюджет, +бизнес, -доверие, риск качества",
+    tradeoff: "Коррупционный путь дает быстрые деньги и оборот, но накапливает репутационный и сервисный долг.",
+    actionPointCost: 1,
+    budgetCost: 0,
+    cooldownDays: 4,
+    delayDays: 0,
+    durationDays: 2,
+    effects: [
+      { kind: "budget_delta", label: "Непубличные контракты пополняют бюджет", value: 5200 },
+      { kind: "daily_business_delta", businessType: "workshop", label: "Лояльные мастерские получают срочные заказы", value: 95 },
+      { kind: "daily_business_delta", businessType: "service", label: "Сервис получает быстрый оборот от подрядов", value: 65 },
+      { kind: "daily_need_delta", need: "socialRating", label: "Доверие к власти снижается из-за слухов", value: -0.65 },
+    ],
+    sideEffects: [
+      {
+        title: "Цена серых контрактов",
+        description: "После непубличных подрядов качество услуг и общественное доверие несколько дней проседают.",
+        delayDays: 2,
+        durationDays: 5,
+        effects: [
+          { kind: "public_quality_delta", businessType: "school", label: "Публичные службы теряют качество из-за мутных закупок", value: -0.2 },
+          { kind: "public_quality_delta", businessType: "hospital", label: "Больницы получают менее надежные поставки", value: -0.2 },
+          { kind: "daily_need_delta", need: "socialRating", label: "Разговоры о коррупции давят на доверие", value: -0.28 },
+        ],
+      },
+    ],
+  },
 ];
 
 const DAILY_DECISION_MAP = new Map(DAILY_DECISION_CATALOG.map((decision) => [decision.id, decision]));
@@ -918,15 +1010,48 @@ const DAILY_DECISION_MAP = new Map(DAILY_DECISION_CATALOG.map((decision) => [dec
 const DEFAULT_GAME_OPTIONS: NewGameOptions = {
   scenarioType: "balanced",
   goalType: "balanced",
-  dayLimit: 30,
+  dayLimit: 32,
 };
+
+const SAVE_SNAPSHOT_TABLES = [
+  "sim_config",
+  "sim_state",
+  "businesses",
+  "goods",
+  "agents",
+  "needs",
+  "relations",
+  "daily_decrees",
+  "stats_history",
+  "agent_stat_history",
+] as const;
+
+const SAVE_DELETE_TABLES = [
+  "stats_history",
+  "agent_stat_history",
+  "daily_decrees",
+  "relations",
+  "needs",
+  "agents",
+  "goods",
+  "businesses",
+  "sim_state",
+  "sim_config",
+] as const;
 
 function normalizeScenarioType(value: unknown): ScenarioType {
   return value === "crisis" || value === "growth" || value === "stability" ? value : "balanced";
 }
 
 function normalizeGoalType(value: unknown): GoalType {
-  if (value === "crisis_recovery" || value === "economic_growth" || value === "social_stability") return value;
+  if (
+    value === "crisis_recovery" ||
+    value === "economic_growth" ||
+    value === "market_growth" ||
+    value === "social_stability" ||
+    value === "force_order" ||
+    value === "corruption_network"
+  ) return value;
   return "balanced";
 }
 
@@ -2141,6 +2266,179 @@ class SimulationEngine {
 
   async newGame(options: Partial<NewGameOptions>): Promise<void> {
     await this.reset(options);
+  }
+
+  private quoteIdentifier(name: string): string {
+    return `"${name.replace(/"/g, '""')}"`;
+  }
+
+  private readRows(table: string): Record<string, unknown>[] {
+    return sqlite.prepare(`SELECT * FROM ${this.quoteIdentifier(table)}`).all() as Record<string, unknown>[];
+  }
+
+  private insertRows(table: string, rows: Record<string, unknown>[]): void {
+    if (rows.length === 0) return;
+    const columns = Object.keys(rows[0]);
+    if (columns.length === 0) return;
+    const columnList = columns.map(column => this.quoteIdentifier(column)).join(", ");
+    const placeholders = columns.map(() => "?").join(", ");
+    const insert = sqlite.prepare(`INSERT INTO ${this.quoteIdentifier(table)} (${columnList}) VALUES (${placeholders})`);
+    for (const row of rows) {
+      insert.run(...columns.map(column => row[column] ?? null));
+    }
+  }
+
+  private buildSaveSummary(): SaveSlotSummary {
+    const state = this.getSimulationState();
+    return {
+      tick: state.tick,
+      gameDay: state.gameDay,
+      gameHour: state.gameHour,
+      scenarioType: state.scenarioType,
+      goalType: state.goalType,
+      gameStatus: state.gameStatus,
+      goalProgress: state.goalProgress,
+      population: state.population,
+      governmentBudget: state.governmentBudget,
+    };
+  }
+
+  private normalizeSaveSlotId(value: unknown): string {
+    const raw = String(value ?? "").trim().toLowerCase();
+    const normalized = raw.replace(/[^a-z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+    if (!normalized) {
+      throw new Error("INVALID_SAVE_SLOT");
+    }
+    return normalized.slice(0, 48);
+  }
+
+  private normalizeSaveName(value: unknown, fallback: string): string {
+    const name = String(value ?? "").trim();
+    return (name || fallback).slice(0, 80);
+  }
+
+  listGameSaves() {
+    const rows = sqlite.prepare(`
+      SELECT id, name, summary, created_at, updated_at
+      FROM save_slots
+      ORDER BY updated_at DESC
+    `).all() as Array<{ id: string; name: string; summary: string; created_at: number; updated_at: number }>;
+
+    return rows.map(row => {
+      let summary: SaveSlotSummary | null = null;
+      try {
+        summary = JSON.parse(row.summary) as SaveSlotSummary;
+      } catch {
+        summary = null;
+      }
+      return {
+        id: row.id,
+        name: row.name,
+        summary,
+        createdAt: new Date(row.created_at).toISOString(),
+        updatedAt: new Date(row.updated_at).toISOString(),
+      };
+    });
+  }
+
+  async saveGame(slotIdValue: unknown, nameValue?: unknown) {
+    const slotId = this.normalizeSaveSlotId(slotIdValue);
+    const name = this.normalizeSaveName(nameValue, `Save ${slotId}`);
+    const hadTimer = this.timer !== null;
+    if (this.timer !== null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    try {
+      await this.waitForTickComplete();
+      await this.persistState();
+
+      const snapshot: Record<string, Record<string, unknown>[]> = {};
+      for (const table of SAVE_SNAPSHOT_TABLES) {
+        snapshot[table] = this.readRows(table);
+      }
+      const summary = this.buildSaveSummary();
+      const now = Date.now();
+
+      sqlite.prepare(`
+        INSERT INTO save_slots (id, name, summary, snapshot_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          summary = excluded.summary,
+          snapshot_json = excluded.snapshot_json,
+          updated_at = excluded.updated_at
+      `).run(slotId, name, JSON.stringify(summary), JSON.stringify(snapshot), now, now);
+
+      return {
+        id: slotId,
+        name,
+        summary,
+        createdAt: new Date(now).toISOString(),
+        updatedAt: new Date(now).toISOString(),
+      };
+    } finally {
+      if (hadTimer && this.state.running && this.timer === null) {
+        this.startTimer();
+      }
+    }
+  }
+
+  async loadGameSave(slotIdValue: unknown) {
+    const slotId = this.normalizeSaveSlotId(slotIdValue);
+    const [row] = sqlite.prepare("SELECT snapshot_json FROM save_slots WHERE id = ?").all(slotId) as Array<{ snapshot_json: string }>;
+    if (!row) {
+      throw new Error("SAVE_SLOT_NOT_FOUND");
+    }
+
+    const snapshot = JSON.parse(row.snapshot_json) as Record<string, Record<string, unknown>[]>;
+    await this.stop();
+    await this.waitForTickComplete();
+
+    sqlite.transaction(() => {
+      for (const table of SAVE_DELETE_TABLES) {
+        sqlite.prepare(`DELETE FROM ${this.quoteIdentifier(table)}`).run();
+      }
+      sqlite
+        .prepare(`DELETE FROM sqlite_sequence WHERE name IN (${SAVE_DELETE_TABLES.map(() => "?").join(",")})`)
+        .run(...SAVE_DELETE_TABLES);
+      for (const table of SAVE_SNAPSHOT_TABLES) {
+        this.insertRows(table, snapshot[table] ?? []);
+      }
+    })();
+
+    this.agents.clear();
+    this.businesses.clear();
+    this.goods.clear();
+    this.relations.clear();
+    this.dirtyRelations.clear();
+    this.persistedRelations.clear();
+    this.agentStatHistory.clear();
+    this.dailyDecrees = [];
+    this.residentRequests = [];
+    this.residentRequestSeq = 1;
+    this.residentRequestReputationDelta = 0;
+    this.factionDemands = [];
+    this.factionDemandSeq = 1;
+
+    await this.loadConfig();
+    await this.loadState();
+    await this.loadAgents();
+    await this.loadBusinesses();
+    await this.loadGoods();
+    await this.loadRelations();
+    await this.loadAgentStatHistory();
+    await this.loadDailyDecrees();
+    if (this.state.running) {
+      this.startTimer();
+    }
+    return this.getSimulationState();
+  }
+
+  deleteGameSave(slotIdValue: unknown) {
+    const slotId = this.normalizeSaveSlotId(slotIdValue);
+    const result = sqlite.prepare("DELETE FROM save_slots WHERE id = ?").run(slotId) as { changes?: number };
+    return { deleted: (result.changes ?? 0) > 0 };
   }
 
   private normalizeNewGameOptions(options: Partial<NewGameOptions>): NewGameOptions {
@@ -4739,18 +5037,36 @@ class SimulationEngine {
     return (businesses.filter(b => b.balance >= 0).length / businesses.length) * 100;
   }
 
+  private getPlayerDecisionCount(predicate?: (decree: DailyDecreeRecord) => boolean): number {
+    const issued = new Set<string>();
+    for (const decree of this.dailyDecrees) {
+      if (decree.actionPointCost <= 0) continue;
+      if (predicate && !predicate(decree)) continue;
+      issued.add(`${decree.decisionId}:${decree.issuedDay}`);
+    }
+    return issued.size;
+  }
+
   private evaluateGoal(gdpOverride?: number): GoalEvaluation {
     const { avgMood, unemploymentRate } = this.getAggregateStats();
     const avgHealth = this.getAverageHealth();
+    const avgPhysicalSafety = this.getAverageNeed("physicalSafety");
+    const avgHousingSafety = this.getAverageNeed("housingSafety");
+    const avgSocialRating = this.getAverageNeed("socialRating");
     const profitablePercent = this.getProfitableBusinessPercent();
     const gdp = gdpOverride ?? Array.from(this.businesses.values()).reduce((s, b) => s + b.balance, 0);
 
     const residentsScore = clampScore(avgMood * 0.5 + (100 - unemploymentRate) * 0.3 + avgHealth * 0.2 + this.residentRequestReputationDelta);
     const businessScore = clampScore(profitablePercent * 0.65 + Math.min(35, Math.max(0, gdp / 10000)));
     const governmentScore = clampScore(Math.min(100, Math.max(0, this.state.governmentBudget / 2500)) * 0.7 + 30);
+    const securityScore = clampScore((avgPhysicalSafety + avgHousingSafety) / 2);
+    const playerDecisionCount = this.getPlayerDecisionCount();
+    const requiredDecisionCount = Math.max(4, Math.min(10, Math.ceil(this.state.dayLimit * 0.22)));
+    const activeDaysRequired = Math.max(7, Math.ceil(this.state.dayLimit * 0.55));
+    const enoughChoices = playerDecisionCount >= requiredDecisionCount && this.state.gameDay >= activeDaysRequired;
 
     let progress = 0;
-    let victory = false;
+    let rawVictory = false;
 
     switch (this.state.goalType) {
       case "crisis_recovery":
@@ -4759,15 +5075,16 @@ class SimulationEngine {
           Math.min(1, Math.max(0, (25 - unemploymentRate) / 15)) +
           Math.min(1, avgMood / 60)
         ) / 3;
-        victory = this.state.governmentBudget >= 100000 && unemploymentRate <= 10 && avgMood >= 60;
+        rawVictory = this.state.governmentBudget >= 100000 && unemploymentRate <= 10 && avgMood >= 60;
         break;
       case "economic_growth":
+      case "market_growth":
         progress = (
           Math.min(1, gdp / 420000) +
           Math.min(1, profitablePercent / 75) +
           Math.min(1, Math.max(0, (18 - unemploymentRate) / 12))
         ) / 3;
-        victory = gdp >= 420000 && profitablePercent >= 75 && unemploymentRate <= 8;
+        rawVictory = gdp >= 420000 && profitablePercent >= 75 && unemploymentRate <= 8;
         break;
       case "social_stability":
         progress = (
@@ -4775,8 +5092,35 @@ class SimulationEngine {
           Math.min(1, avgHealth / 75) +
           Math.min(1, Math.max(0, this.agents.size / 1000))
         ) / 3;
-        victory = residentsScore >= 75 && avgHealth >= 75 && this.agents.size >= 1000;
+        rawVictory = residentsScore >= 75 && avgHealth >= 75 && this.agents.size >= 1000;
         break;
+      case "force_order": {
+        const forceMoves = this.getPlayerDecisionCount(decree =>
+          decree.decisionId === "government_hardline_patrols" ||
+          decree.decisionId === "government_security_push" ||
+          decree.decisionId === "residents_quiet_evenings" ||
+          decree.decisionId === "residents_housing_repairs"
+        );
+        progress = (
+          Math.min(1, securityScore / 78) +
+          Math.min(1, governmentScore / 72) +
+          Math.min(1, residentsScore / 55) +
+          Math.min(1, forceMoves / 4)
+        ) / 4;
+        rawVictory = securityScore >= 78 && governmentScore >= 72 && residentsScore >= 55 && forceMoves >= 4;
+        break;
+      }
+      case "corruption_network": {
+        const shadowContracts = this.getPlayerDecisionCount(decree => decree.decisionId === "government_shadow_contracts");
+        progress = (
+          Math.min(1, this.state.governmentBudget / 140000) +
+          Math.min(1, businessScore / 76) +
+          Math.min(1, residentsScore / 45) +
+          Math.min(1, shadowContracts / 4)
+        ) / 4;
+        rawVictory = this.state.governmentBudget >= 140000 && businessScore >= 76 && residentsScore >= 45 && avgSocialRating >= 35 && shadowContracts >= 4;
+        break;
+      }
       case "balanced":
       default:
         progress = (
@@ -4784,8 +5128,13 @@ class SimulationEngine {
           Math.min(1, businessScore / 70) +
           Math.min(1, governmentScore / 70)
         ) / 3;
-        victory = residentsScore >= 70 && businessScore >= 70 && governmentScore >= 70;
+        rawVictory = residentsScore >= 70 && businessScore >= 70 && governmentScore >= 70;
         break;
+    }
+
+    const victory = rawVictory && enoughChoices;
+    if (rawVictory && !victory) {
+      progress = Math.min(progress, 0.96);
     }
 
     if (victory) {
@@ -4837,9 +5186,14 @@ class SimulationEngine {
       case "crisis_recovery":
         return "Кризис преодолён: бюджет, занятость и настроение вернулись в устойчивую зону.";
       case "economic_growth":
+      case "market_growth":
         return "Экономический рывок состоялся: бизнесы прибыльны, ВВП вырос, безработица низкая.";
       case "social_stability":
         return "Город стабилен: жители здоровы, население удержано, доверие высокое.";
+      case "force_order":
+        return "Порядок удержан: силовая стратегия стабилизировала безопасность и управляемость города.";
+      case "corruption_network":
+        return "Серая сеть сработала: бюджет и подрядчики удержали город на плаву, не обрушив доверие ниже критической зоны.";
       case "balanced":
       default:
         return "Баланс интересов найден: жители, бизнес и власть поддерживают курс мэра.";
@@ -4924,6 +5278,8 @@ class SimulationEngine {
           business.balance += effect.value;
         }
       }
+    } else if (effect.kind === "budget_delta") {
+      this.state.governmentBudget = Math.max(0, this.state.governmentBudget + effect.value);
     } else if (effect.kind === "public_quality_delta" && effect.businessType) {
       for (const good of this.goods.values()) {
         const business = good.businessId != null ? this.businesses.get(good.businessId) : null;
@@ -5250,10 +5606,10 @@ class SimulationEngine {
     const governmentDecisionIds = this.getDailyCardDecisionIds(
       "government",
       this.state.governmentBudget < 15000 || budgetDays < 3
-        ? ["government_tax_surcharge", "government_emergency_reserve", "government_spending_audit"]
+        ? ["government_tax_surcharge", "government_shadow_contracts", "government_emergency_reserve"]
         : securityAvg < 52
-          ? ["government_security_push", "government_service_overtime", "government_data_inspection"]
-          : ["government_data_inspection", "government_spending_audit", "government_service_overtime"],
+          ? ["government_hardline_patrols", "government_security_push", "government_service_overtime"]
+          : ["government_data_inspection", "government_spending_audit", "government_shadow_contracts"],
     );
 
     return [

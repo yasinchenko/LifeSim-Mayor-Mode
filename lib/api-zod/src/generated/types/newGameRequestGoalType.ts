@@ -13,5 +13,8 @@ export const NewGameRequestGoalType = {
   balanced: "balanced",
   crisis_recovery: "crisis_recovery",
   economic_growth: "economic_growth",
+  market_growth: "market_growth",
   social_stability: "social_stability",
+  force_order: "force_order",
+  corruption_network: "corruption_network",
 } as const;

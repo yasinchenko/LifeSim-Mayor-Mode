@@ -414,7 +414,7 @@ components:
           enum: [balanced, crisis, growth, stability]
         goalType:
           type: string
-          enum: [balanced, crisis_recovery, economic_growth, social_stability]
+          enum: [balanced, crisis_recovery, economic_growth, market_growth, social_stability, force_order, corruption_network]
         dayLimit:
           type: integer
         daysRemaining:
@@ -484,13 +484,13 @@ components:
           default: balanced
         goalType:
           type: string
-          enum: [balanced, crisis_recovery, economic_growth, social_stability]
+          enum: [balanced, crisis_recovery, economic_growth, market_growth, social_stability, force_order, corruption_network]
           default: balanced
         dayLimit:
           type: integer
           minimum: 7
           maximum: 120
-          default: 30
+          default: 32
 
     IssueDailyDecisionRequest:
       type: object
@@ -505,7 +505,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [need_decay_multiplier, social_multiplier, tax_delta, subsidy_multiplier, daily_need_delta, daily_business_delta, public_quality_delta, food_supply_delta]
+          enum: [need_decay_multiplier, social_multiplier, tax_delta, subsidy_multiplier, daily_need_delta, daily_business_delta, budget_delta, public_quality_delta, food_supply_delta]
         label:
           type: string
         value:

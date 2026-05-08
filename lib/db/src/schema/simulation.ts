@@ -10,7 +10,7 @@ export const simStateTable = sqliteTable("sim_state", {
   gameDay: integer("game_day").notNull().default(1),
   scenarioType: text("scenario_type").notNull().default("balanced"),
   goalType: text("goal_type").notNull().default("balanced"),
-  dayLimit: integer("day_limit").notNull().default(30),
+  dayLimit: integer("day_limit").notNull().default(32),
   gameStatus: text("game_status").notNull().default("active"),
   gameOutcomeReason: text("game_outcome_reason"),
   actionPointsRemaining: integer("action_points_remaining").notNull().default(3),

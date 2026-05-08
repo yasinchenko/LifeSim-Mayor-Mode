@@ -1,0 +1,31 @@
+
+> workspace@0.0.0 web:dev E:\LifeSim Mayor Mode
+> node scripts/start-web-dev.mjs
+
+Starting API at http://127.0.0.1:4123
+Starting Vite web preview at http://127.0.0.1:4173
+[17:42:09.547] [32mINFO[39m (10704): [36mInitializing simulation engine...[39m
+[17:42:09.593] [32mINFO[39m (10704): [36mLoaded agent stat history from DB[39m
+    [35magentCount[39m: 0
+[17:42:09.594] [32mINFO[39m (10704): [36mHospitals already present, skipping creation[39m
+    [35mcount[39m: 6
+[17:42:09.594] [32mINFO[39m (10704): [36mRaw producers already present, skipping[39m
+    [35mfarmCount[39m: 6
+    [35mworkshopCount[39m: 4
+[17:42:09.594] [32mINFO[39m (10704): [36mPublic services already present, skipping[39m
+    [35mschools[39m: 4
+    [35mparks[39m: 5
+    [35mtemples[39m: 3
+[17:42:09.594] [32mINFO[39m (10704): [36mResuming simulation from saved state[39m
+[17:42:09.595] [32mINFO[39m (10704): [36mSimulation engine initialized[39m
+    [35magentCount[39m: 1000
+    [35mbusinessCount[39m: 80
+[17:42:09.611] [32mINFO[39m (10704): [36mServer listening[39m
+    [35mport[39m: 4123
+    [35mhost[39m: "127.0.0.1"
+
+  [32m[1mVITE[22m v7.3.2[39m  [2mready in [0m[1m594[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m4173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://10.69.196.29:[1m4173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.0.98:[1m4173[22m/[39m

@@ -123,7 +123,7 @@ function bootstrapSchema(): void {
       game_day INTEGER NOT NULL DEFAULT 1,
       scenario_type TEXT NOT NULL DEFAULT 'balanced',
       goal_type TEXT NOT NULL DEFAULT 'balanced',
-      day_limit INTEGER NOT NULL DEFAULT 30,
+      day_limit INTEGER NOT NULL DEFAULT 32,
       game_status TEXT NOT NULL DEFAULT 'active',
       game_outcome_reason TEXT,
       action_points_remaining INTEGER NOT NULL DEFAULT 3,
@@ -194,6 +194,15 @@ function bootstrapSchema(): void {
 
     CREATE INDEX IF NOT EXISTS agent_stat_history_agent_tick_idx
       ON agent_stat_history(agent_id, tick);
+
+    CREATE TABLE IF NOT EXISTS save_slots (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      snapshot_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   const simStateColumns = new Set(
@@ -207,7 +216,7 @@ function bootstrapSchema(): void {
 
   addSimStateColumn("scenario_type", "scenario_type TEXT NOT NULL DEFAULT 'balanced'");
   addSimStateColumn("goal_type", "goal_type TEXT NOT NULL DEFAULT 'balanced'");
-  addSimStateColumn("day_limit", "day_limit INTEGER NOT NULL DEFAULT 30");
+  addSimStateColumn("day_limit", "day_limit INTEGER NOT NULL DEFAULT 32");
   addSimStateColumn("game_status", "game_status TEXT NOT NULL DEFAULT 'active'");
   addSimStateColumn("game_outcome_reason", "game_outcome_reason TEXT");
   addSimStateColumn("action_points_remaining", "action_points_remaining INTEGER NOT NULL DEFAULT 3");

@@ -16,6 +16,7 @@ export const DecisionEffectKind = {
   subsidy_multiplier: "subsidy_multiplier",
   daily_need_delta: "daily_need_delta",
   daily_business_delta: "daily_business_delta",
+  budget_delta: "budget_delta",
   public_quality_delta: "public_quality_delta",
   food_supply_delta: "food_supply_delta",
 } as const;

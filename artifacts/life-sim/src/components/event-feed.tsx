@@ -47,8 +47,8 @@ async function fetchEvents(): Promise<EventsResponse> {
 }
 
 function severityColor(s: EventSeverity) {
-  if (s === "positive") return "hsl(173,80%,40%)";
-  if (s === "negative") return "hsl(348,83%,52%)";
+  if (s === "positive") return "hsl(156,52%,70%)";
+  if (s === "negative") return "hsl(351,72%,75%)";
   return "hsl(45,95%,55%)";
 }
 
@@ -130,8 +130,8 @@ export default function EventFeed({
           Мировые события
         </h3>
         {running && (
-          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wider bg-[hsl(173,80%,40%)]/15 text-[hsl(173,80%,40%)] border border-[hsl(173,80%,40%)]/25">
-            <span className="w-1.5 h-1.5 rounded-full bg-[hsl(173,80%,40%)] animate-pulse inline-block" />
+          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wider bg-[hsl(156,52%,70%)]/15 text-[hsl(156,52%,70%)] border border-[hsl(156,52%,70%)]/25">
+            <span className="w-1.5 h-1.5 rounded-full bg-[hsl(156,52%,70%)] animate-pulse inline-block" />
             LIVE
           </span>
         )}

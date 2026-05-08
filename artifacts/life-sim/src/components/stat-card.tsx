@@ -14,27 +14,27 @@ interface StatCardProps {
 }
 
 const accentMap: Record<string, string> = {
-  teal: "text-[hsl(173,80%,40%)]",
-  amber: "text-[hsl(43,100%,50%)]",
-  crimson: "text-[hsl(348,83%,47%)]",
-  blue: "text-[hsl(210,100%,50%)]",
-  purple: "text-[hsl(280,80%,60%)]",
+  teal: "text-[hsl(156,52%,70%)]",
+  amber: "text-[hsl(38,78%,74%)]",
+  crimson: "text-[hsl(351,72%,75%)]",
+  blue: "text-[hsl(232,67%,79%)]",
+  purple: "text-[hsl(282,52%,78%)]",
 };
 
 const accentStrokeMap: Record<string, string> = {
-  teal: "hsl(173,80%,40%)",
-  amber: "hsl(43,100%,50%)",
-  crimson: "hsl(348,83%,47%)",
-  blue: "hsl(210,100%,50%)",
-  purple: "hsl(280,80%,60%)",
+  teal: "hsl(156,52%,70%)",
+  amber: "hsl(38,78%,74%)",
+  crimson: "hsl(351,72%,75%)",
+  blue: "hsl(232,67%,79%)",
+  purple: "hsl(282,52%,78%)",
 };
 
 const accentGlowMap: Record<string, string> = {
-  teal: "hsl(173 80% 40% / 0.6)",
-  amber: "hsl(43 100% 50% / 0.6)",
-  crimson: "hsl(348 83% 47% / 0.6)",
+  teal: "hsl(156 52% 70% / 0.6)",
+  amber: "hsl(38 78% 74% / 0.6)",
+  crimson: "hsl(351 72% 75% / 0.6)",
   blue: "hsl(210 100% 50% / 0.6)",
-  purple: "hsl(280 80% 60% / 0.6)",
+  purple: "hsl(282 52% 78% / 0.6)",
 };
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {

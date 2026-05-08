@@ -71,14 +71,14 @@
 }
 
 @keyframes rank-up {
-  0%   { background-color: hsl(173 80% 40% / 0.25); }
-  20%  { background-color: hsl(173 80% 40% / 0.18); }
+  0%   { background-color: hsl(156 52% 70% / 0.25); }
+  20%  { background-color: hsl(156 52% 70% / 0.18); }
   100% { background-color: transparent; }
 }
 
 @keyframes rank-down {
-  0%   { background-color: hsl(348 83% 47% / 0.25); }
-  20%  { background-color: hsl(348 83% 47% / 0.18); }
+  0%   { background-color: hsl(351 72% 75% / 0.25); }
+  20%  { background-color: hsl(351 72% 75% / 0.18); }
   100% { background-color: transparent; }
 }
 
@@ -100,13 +100,13 @@
   inset: -1px;
   border-radius: inherit;
   pointer-events: none;
-  border: 1px solid var(--stat-glow-color, hsl(173 80% 40%));
-  box-shadow: 0 0 12px 2px var(--stat-glow-color, hsl(173 80% 40% / 0.4));
+  border: 1px solid var(--stat-glow-color, hsl(156 52% 70%));
+  box-shadow: 0 0 12px 2px var(--stat-glow-color, hsl(156 52% 70% / 0.4));
   animation: stat-card-glow 0.7s ease-out forwards;
 }
 
 @keyframes tick-badge-flash {
-  0%   { color: hsl(173 80% 40%); }
+  0%   { color: hsl(156 52% 70%); }
   100% { color: inherit; }
 }
 
@@ -190,54 +190,51 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  /* Bloomberg Terminal / Mission Control Vibe */
-  --background: 225 15% 7%; /* Deep dark slate */
-  --foreground: 210 20% 90%;
+  /* Soft pastel civic dashboard */
+  --background: 218 20% 13%;
+  --foreground: 214 28% 91%;
   
-  --border: 225 10% 20%;
-  --card: 225 12% 10%;
-  --card-foreground: 210 20% 90%;
-  --card-border: 225 10% 20%;
+  --border: 218 16% 28%;
+  --card: 218 20% 16%;
+  --card-foreground: 214 28% 91%;
+  --card-border: 218 16% 28%;
   
-  --sidebar: 225 15% 5%;
-  --sidebar-foreground: 210 20% 80%;
-  --sidebar-border: 225 10% 15%;
-  --sidebar-primary: 173 80% 40%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 225 15% 15%;
-  --sidebar-accent-foreground: 210 20% 90%;
-  --sidebar-ring: 173 80% 40%;
+  --sidebar: 218 22% 12%;
+  --sidebar-foreground: 214 24% 84%;
+  --sidebar-border: 218 16% 24%;
+  --sidebar-primary: 156 52% 70%;
+  --sidebar-primary-foreground: 218 24% 12%;
+  --sidebar-accent: 218 18% 20%;
+  --sidebar-accent-foreground: 214 28% 91%;
+  --sidebar-ring: 156 52% 70%;
   
-  --popover: 225 15% 7%;
-  --popover-foreground: 210 20% 90%;
-  --popover-border: 225 10% 20%;
+  --popover: 218 20% 14%;
+  --popover-foreground: 214 28% 91%;
+  --popover-border: 218 16% 28%;
   
-  /* Teal / Economy */
-  --primary: 173 80% 40%; 
-  --primary-foreground: 0 0% 100%;
+  --primary: 156 52% 70%; 
+  --primary-foreground: 218 24% 12%;
   
-  --secondary: 225 15% 15%;
-  --secondary-foreground: 210 20% 90%;
+  --secondary: 218 18% 22%;
+  --secondary-foreground: 214 28% 91%;
   
-  --muted: 225 15% 15%;
-  --muted-foreground: 210 10% 60%;
+  --muted: 218 16% 22%;
+  --muted-foreground: 214 14% 68%;
   
-  --accent: 225 15% 18%;
-  --accent-foreground: 210 20% 90%;
+  --accent: 232 38% 27%;
+  --accent-foreground: 232 67% 86%;
   
-  /* Crimson / Warning */
-  --destructive: 348 83% 47%;
-  --destructive-foreground: 0 0% 100%;
+  --destructive: 351 72% 75%;
+  --destructive-foreground: 218 24% 12%;
   
-  --input: 225 10% 25%;
-  --ring: 173 80% 40%;
+  --input: 218 16% 30%;
+  --ring: 156 52% 70%;
   
-  /* Amber / Teal / Crimson for charts */
-  --chart-1: 173 80% 40%; /* Teal */
-  --chart-2: 43 100% 50%; /* Amber */
-  --chart-3: 348 83% 47%; /* Crimson */
-  --chart-4: 210 100% 50%; /* Blue */
-  --chart-5: 280 80% 60%; /* Purple */
+  --chart-1: 156 52% 70%;
+  --chart-2: 38 78% 74%;
+  --chart-3: 351 72% 75%;
+  --chart-4: 232 67% 79%;
+  --chart-5: 282 52% 78%;
 }
 
 @layer base {
