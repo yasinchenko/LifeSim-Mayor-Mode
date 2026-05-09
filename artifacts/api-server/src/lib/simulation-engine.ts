@@ -94,7 +94,271 @@ interface DistrictServiceRuntimeState {
   staff: DistrictServiceStaff;
   staffAgentIds: Record<DistrictServiceType, number[]>;
   hiringQueue: Array<DistrictHiringQueueItem & { agentIds: number[] }>;
+  efficiencyPenalty: Record<DistrictServiceType, number>;
 }
+
+type MayorOfficeRiskLevel = "low" | "rising" | "danger";
+type MayorOfficeOperationType =
+  | "skim_city_budget"
+  | "skim_service_budget"
+  | "provide_service"
+  | "purchase"
+  | "system";
+type MayorOfficeActionLevel = "minimal" | "medium" | "maximum";
+type MayorOfficePurchaseType =
+  | "private_security"
+  | "professional_security"
+  | "villa"
+  | "expensive_car"
+  | "luxury";
+
+interface MayorOfficeOperation {
+  id: string;
+  day: number;
+  tick: number;
+  type: MayorOfficeOperationType;
+  title: string;
+  amount: number;
+  offshoreDelta: number;
+  corruptionDelta: number;
+  riskDelta: number;
+}
+
+interface MayorOfficeState {
+  offshoreBalance: number;
+  corruption: number;
+  securityLevel: number;
+  securityExpiresTick: number | null;
+  securityTicksRemaining: number;
+  luxuryLevel: number;
+  statusLevel: number;
+  riskLevel: MayorOfficeRiskLevel;
+  operations: MayorOfficeOperation[];
+}
+
+interface MayorOfficeDistrictDealDefinition {
+  id: string;
+  districtId: string;
+  title: string;
+  baseAmount: number;
+  baseCorruptionDelta: number;
+  metricDeltas: DistrictMetricOverrides;
+}
+
+interface MayorOfficePurchaseDefinition {
+  item: MayorOfficePurchaseType;
+  title: string;
+  cost: number;
+  securityDelta: number;
+  securityDurationDays: number;
+  luxuryDelta: number;
+  statusDelta: number;
+  corruptionDelta: number;
+  povertyBacklash: boolean;
+}
+
+const DEFAULT_MAYOR_OFFICE: MayorOfficeState = {
+  offshoreBalance: 0,
+  corruption: 0,
+  securityLevel: 0,
+  securityExpiresTick: null,
+  securityTicksRemaining: 0,
+  luxuryLevel: 0,
+  statusLevel: 0,
+  riskLevel: "low",
+  operations: [],
+};
+const MAYOR_OFFICE_OPERATIONS_LIMIT = 80;
+const MAYOR_OFFICE_ASSASSINATION_MIN_RISK = 70;
+const MAYOR_OFFICE_ASSASSINATION_MIN_HOURLY_CHANCE = 0.002;
+const MAYOR_OFFICE_ASSASSINATION_MAX_HOURLY_CHANCE = 0.008;
+const MAYOR_OFFICE_SECURITY_DURATION_DAYS = 3;
+const MAYOR_OFFICE_TICKS_PER_DAY = 24;
+const MAYOR_OFFICE_CORRUPTION_DECAY_PER_QUIET_DAY = 2;
+const MAYOR_OFFICE_CITY_BUDGET_SKIM: Record<MayorOfficeActionLevel, {
+  share: number;
+  corruptionDelta: number;
+  residentsReputationDelta: number;
+  governmentReputationDelta: number;
+}> = {
+  minimal: {
+    share: 0.1,
+    corruptionDelta: 2,
+    residentsReputationDelta: -0.5,
+    governmentReputationDelta: -1,
+  },
+  medium: {
+    share: 0.5,
+    corruptionDelta: 8,
+    residentsReputationDelta: -2.5,
+    governmentReputationDelta: -4,
+  },
+  maximum: {
+    share: 1,
+    corruptionDelta: 15,
+    residentsReputationDelta: -5,
+    governmentReputationDelta: -8,
+  },
+};
+const MAYOR_OFFICE_SERVICE_BUDGET_SKIM: Record<MayorOfficeActionLevel, {
+  share: number;
+  corruptionDelta: number;
+  efficiencyPenaltyDelta: number;
+  metricPenalty: number;
+}> = {
+  minimal: {
+    share: 0.1,
+    corruptionDelta: 1.5,
+    efficiencyPenaltyDelta: 0.08,
+    metricPenalty: 2,
+  },
+  medium: {
+    share: 0.5,
+    corruptionDelta: 6,
+    efficiencyPenaltyDelta: 0.22,
+    metricPenalty: 6,
+  },
+  maximum: {
+    share: 1,
+    corruptionDelta: 12,
+    efficiencyPenaltyDelta: 0.4,
+    metricPenalty: 11,
+  },
+};
+const MAYOR_OFFICE_DEAL_LEVELS: Record<MayorOfficeActionLevel, { label: string; scale: number }> = {
+  minimal: { label: "Малая", scale: 1 },
+  medium: { label: "Средняя", scale: 2.4 },
+  maximum: { label: "Крупная", scale: 4.2 },
+};
+const MAYOR_OFFICE_DISTRICT_DEALS: readonly MayorOfficeDistrictDealDefinition[] = [
+  {
+    id: "density_development",
+    districtId: "business",
+    title: "Уплотнительная застройка",
+    baseAmount: 1800,
+    baseCorruptionDelta: 2.2,
+    metricDeltas: {
+      businessTrust: 2,
+      mayorReputationResidents: -1.4,
+      comfort: -1.4,
+      infrastructure: -1.6,
+      safety: -0.8,
+    },
+  },
+  {
+    id: "gray_permits",
+    districtId: "market",
+    title: "Серые разрешения",
+    baseAmount: 1400,
+    baseCorruptionDelta: 2,
+    metricDeltas: {
+      businessTrust: 2.2,
+      mayorReputationResidents: -1.2,
+      comfort: -1,
+      infrastructure: -0.8,
+      safety: -1.8,
+    },
+  },
+  {
+    id: "commercial_development",
+    districtId: "residential",
+    title: "Коммерческая застройка",
+    baseAmount: 1500,
+    baseCorruptionDelta: 2.1,
+    metricDeltas: {
+      businessTrust: 1.6,
+      mayorReputationResidents: -1.8,
+      comfort: -2.2,
+      infrastructure: -1.4,
+      safety: -0.8,
+    },
+  },
+  {
+    id: "administrative_contract",
+    districtId: "city-hall",
+    title: "Административный подряд",
+    baseAmount: 1700,
+    baseCorruptionDelta: 2.4,
+    metricDeltas: {
+      businessTrust: 1.2,
+      mayorReputationResidents: -1,
+      comfort: -0.8,
+      infrastructure: -1.8,
+      safety: -0.8,
+    },
+  },
+  {
+    id: "hidden_optimization",
+    districtId: "services",
+    title: "Скрытая оптимизация",
+    baseAmount: 1300,
+    baseCorruptionDelta: 1.8,
+    metricDeltas: {
+      businessTrust: 1.1,
+      mayorReputationResidents: -1.4,
+      comfort: -1.2,
+      infrastructure: -2.1,
+      safety: -1.3,
+    },
+  },
+];
+const MAYOR_OFFICE_PURCHASES: readonly MayorOfficePurchaseDefinition[] = [
+  {
+    item: "private_security",
+    title: "Частная охрана",
+    cost: 15000,
+    securityDelta: 1,
+    securityDurationDays: MAYOR_OFFICE_SECURITY_DURATION_DAYS,
+    luxuryDelta: 0,
+    statusDelta: 0,
+    corruptionDelta: 0.4,
+    povertyBacklash: false,
+  },
+  {
+    item: "professional_security",
+    title: "Профессиональная охрана",
+    cost: 60000,
+    securityDelta: 2,
+    securityDurationDays: MAYOR_OFFICE_SECURITY_DURATION_DAYS,
+    luxuryDelta: 0,
+    statusDelta: 1,
+    corruptionDelta: 0.8,
+    povertyBacklash: false,
+  },
+  {
+    item: "villa",
+    title: "Вилла",
+    cost: 90000,
+    securityDelta: 0,
+    securityDurationDays: 0,
+    luxuryDelta: 2,
+    statusDelta: 2,
+    corruptionDelta: 2,
+    povertyBacklash: true,
+  },
+  {
+    item: "expensive_car",
+    title: "Дорогая машина",
+    cost: 36000,
+    securityDelta: 0,
+    securityDurationDays: 0,
+    luxuryDelta: 1,
+    statusDelta: 1,
+    corruptionDelta: 3,
+    povertyBacklash: true,
+  },
+  {
+    item: "luxury",
+    title: "Роскошь",
+    cost: 24000,
+    securityDelta: 0,
+    securityDurationDays: 0,
+    luxuryDelta: 2,
+    statusDelta: 1,
+    corruptionDelta: 1.5,
+    povertyBacklash: true,
+  },
+];
 
 interface DistrictInvestmentReputationDelta {
   residents: number;
@@ -333,6 +597,7 @@ interface ResidentRequestRecord {
   declineReputationPenalty: number;
   createdTick: number;
   createdDay: number;
+  deadlineTick: number;
 }
 
 interface DecisionModifiers {
@@ -344,6 +609,12 @@ interface DecisionModifiers {
 
 const DAILY_ACTION_POINTS_MAX = 1;
 const RESIDENT_REQUEST_BUFFER_MAX = 30;
+const RESIDENT_REQUEST_DEADLINE_TICKS = 12;
+const DAILY_DISTRICT_INCIDENT_ATTEMPTS_PER_DISTRICT = 5;
+const HOURLY_DISTRICT_INCIDENT_ATTEMPT_CHANCE = DAILY_DISTRICT_INCIDENT_ATTEMPTS_PER_DISTRICT / 24;
+const DISTRICT_INCIDENT_RESPONSE_DEADLINE_TICKS = 6;
+const MAX_ACTIVE_DISTRICT_INCIDENTS_PER_DISTRICT = 8;
+const MAX_ACTIVE_DISTRICT_INCIDENTS_PER_TYPE = 3;
 const RESIDENT_REQUEST_DISTRICTS = DISTRICTS.map(district => district.name);
 const RESIDENT_REQUEST_CATEGORY_LABELS: Record<ResidentRequestCategory, string> = {
   finance: "Финансы",
@@ -1487,6 +1758,7 @@ class SimulationEngine {
   private districtIncidentSeq = 1;
   private districtMetricOverrides: Map<string, DistrictMetricOverrides> = new Map();
   private districtInvestmentReputationDelta: DistrictInvestmentReputationDelta = { residents: 0, business: 0, government: 0 };
+  private mayorOffice: MayorOfficeState = { ...DEFAULT_MAYOR_OFFICE };
 
   async initialize(): Promise<void> {
     logger.info("Initializing simulation engine...");
@@ -1501,6 +1773,7 @@ class SimulationEngine {
     await this.loadDistrictServices();
     await this.loadDistrictIncidents();
     await this.loadDistrictInvestments();
+    await this.loadMayorOffice();
 
     if (this.agents.size === 0) {
       logger.info("No agents found, generating initial population...");
@@ -2292,9 +2565,11 @@ class SimulationEngine {
     this.districtIncidents = [];
     this.districtIncidentSeq = 1;
     this.resetDistrictInvestments();
+    this.resetMayorOffice();
     await this.saveDistrictServices();
     await this.saveDistrictIncidents();
     await this.saveDistrictInvestments();
+    await this.saveMayorOffice();
 
     this.state = {
       tick: 0,
@@ -2321,9 +2596,11 @@ class SimulationEngine {
     this.districtIncidents = [];
     this.districtIncidentSeq = 1;
     this.resetDistrictInvestments();
+    this.resetMayorOffice();
     await this.saveDistrictServices();
     await this.saveDistrictIncidents();
     await this.saveDistrictInvestments();
+    await this.saveMayorOffice();
     await this.start();
     logger.info("Simulation reset complete");
   }
@@ -2496,6 +2773,7 @@ class SimulationEngine {
     await this.loadDistrictServices();
     await this.loadDistrictIncidents();
     await this.loadDistrictInvestments();
+    await this.loadMayorOffice();
     if (this.state.running) {
       this.startTimer();
     }
@@ -2568,6 +2846,11 @@ class SimulationEngine {
           fire: [],
         },
         hiringQueue: [],
+        efficiencyPenalty: {
+          utility: 0,
+          police: 0,
+          fire: 0,
+        },
       });
     }
   }
@@ -2582,6 +2865,7 @@ class SimulationEngine {
         staff?: Partial<DistrictServiceStaff>;
         staffAgentIds?: Partial<Record<DistrictServiceType, number[]>>;
         hiringQueue?: Array<Partial<DistrictHiringQueueItem> & { agentIds?: number[] }>;
+        efficiencyPenalty?: Partial<Record<DistrictServiceType, number>>;
       }>;
 
       for (const district of DISTRICTS) {
@@ -2608,6 +2892,11 @@ class SimulationEngine {
             agentIds: (item.agentIds ?? []).filter(id => this.agents.has(id)),
           }))
           .filter(item => item.agentIds.length > 0);
+        state.efficiencyPenalty = {
+          utility: clamp(Number(saved.efficiencyPenalty?.utility ?? state.efficiencyPenalty.utility), 0, 0.8),
+          police: clamp(Number(saved.efficiencyPenalty?.police ?? state.efficiencyPenalty.police), 0, 0.8),
+          fire: clamp(Number(saved.efficiencyPenalty?.fire ?? state.efficiencyPenalty.fire), 0, 0.8),
+        };
       }
     } catch {
       this.resetDistrictServices();
@@ -2621,6 +2910,7 @@ class SimulationEngine {
         staff: state.staff,
         staffAgentIds: state.staffAgentIds,
         hiringQueue: state.hiringQueue,
+        efficiencyPenalty: state.efficiencyPenalty,
       };
     }
 
@@ -2760,6 +3050,340 @@ class SimulationEngine {
       });
   }
 
+  private resetMayorOffice(): void {
+    this.mayorOffice = {
+      ...DEFAULT_MAYOR_OFFICE,
+      operations: [],
+    };
+  }
+
+  private normalizeMayorOfficeRiskLevel(value: unknown): MayorOfficeRiskLevel {
+    return value === "rising" || value === "danger" ? value : "low";
+  }
+
+  private normalizeMayorOfficeOperationType(value: unknown): MayorOfficeOperationType {
+    return value === "skim_city_budget" ||
+      value === "skim_service_budget" ||
+      value === "provide_service" ||
+      value === "purchase" ||
+      value === "system"
+      ? value
+      : "system";
+  }
+
+  private normalizeMayorOfficeOperation(raw: Partial<MayorOfficeOperation>, index: number): MayorOfficeOperation {
+    const id = typeof raw.id === "string" && raw.id.length > 0
+      ? raw.id
+      : `mo-${this.state.tick}-${index}`;
+    const title = typeof raw.title === "string" && raw.title.length > 0
+      ? raw.title
+      : "Operation";
+
+    return {
+      id,
+      day: Math.max(1, Number(raw.day ?? this.state.gameDay)),
+      tick: Math.max(0, Number(raw.tick ?? this.state.tick)),
+      type: this.normalizeMayorOfficeOperationType(raw.type),
+      title,
+      amount: Math.max(0, Number(raw.amount ?? 0)),
+      offshoreDelta: Number(raw.offshoreDelta ?? 0),
+      corruptionDelta: Number(raw.corruptionDelta ?? 0),
+      riskDelta: Number(raw.riskDelta ?? 0),
+    };
+  }
+
+  private normalizeMayorOffice(raw: Partial<MayorOfficeState>): MayorOfficeState {
+    const rawSecurityLevel = Math.max(0, Math.min(2, Math.floor(Number(raw.securityLevel ?? 0))));
+    const rawExpiresTick = Number(raw.securityExpiresTick ?? NaN);
+    const securityExpiresTick = Number.isFinite(rawExpiresTick) && rawExpiresTick > this.state.tick
+      ? Math.floor(rawExpiresTick)
+      : null;
+    const securityLevel = securityExpiresTick ? rawSecurityLevel : 0;
+    return {
+      offshoreBalance: Math.max(0, Number(raw.offshoreBalance ?? 0)),
+      corruption: Math.round(clamp(Number(raw.corruption ?? 0), 0, 100) * 10) / 10,
+      securityLevel,
+      securityExpiresTick,
+      securityTicksRemaining: securityExpiresTick ? Math.max(0, securityExpiresTick - this.state.tick) : 0,
+      luxuryLevel: Math.max(0, Math.floor(Number(raw.luxuryLevel ?? 0))),
+      statusLevel: Math.max(0, Math.floor(Number(raw.statusLevel ?? 0))),
+      riskLevel: this.normalizeMayorOfficeRiskLevel(raw.riskLevel),
+      operations: (Array.isArray(raw.operations) ? raw.operations : [])
+        .slice(0, MAYOR_OFFICE_OPERATIONS_LIMIT)
+        .map((operation, index) => this.normalizeMayorOfficeOperation(operation, index)),
+    };
+  }
+
+  private async loadMayorOffice(): Promise<void> {
+    const [row] = await db.select().from(simConfigTable).where(eq(simConfigTable.key, "mayorOfficeJson")).limit(1);
+    this.resetMayorOffice();
+    if (!row?.value) return;
+
+    try {
+      const parsed = JSON.parse(row.value) as Partial<MayorOfficeState>;
+      this.mayorOffice = this.normalizeMayorOffice(parsed);
+    } catch {
+      this.resetMayorOffice();
+    }
+  }
+
+  private async saveMayorOffice(): Promise<void> {
+    const value = JSON.stringify(this.mayorOffice);
+    await db
+      .insert(simConfigTable)
+      .values({ key: "mayorOfficeJson", value })
+      .onConflictDoUpdate({
+        target: simConfigTable.key,
+        set: { value },
+      });
+  }
+
+  private calculateMayorOfficeRisk() {
+    const residentsScore = this.evaluateGoal().residentsScore;
+    const activeProtests = this.districtIncidents.filter(
+      incident => incident.type === "protest" && incident.status === "active",
+    ).length;
+    const unresolvedIncidents = this.districtIncidents.filter(
+      incident => incident.status === "ignored" || incident.status === "expired",
+    ).length;
+    const hardDecisionCount = this.getPlayerDecisionCount(decree =>
+      decree.decisionId === "government_hardline_patrols" ||
+      decree.decisionId === "government_security_push" ||
+      decree.decisionId === "residents_quiet_evenings",
+    );
+
+    const rawRisk =
+      this.mayorOffice.corruption * 0.55 +
+      Math.max(0, 60 - residentsScore) * 0.45 +
+      Math.min(24, activeProtests * 8) +
+      Math.min(24, unresolvedIncidents * 4) +
+      Math.min(20, hardDecisionCount * 5);
+    const securityMultiplier = this.mayorOffice.securityLevel >= 2
+      ? 0.65
+      : this.mayorOffice.securityLevel === 1
+        ? 0.82
+        : 1;
+    const score = Math.round(clamp(rawRisk * securityMultiplier, 0, 100) * 10) / 10;
+    const status: MayorOfficeRiskLevel = score >= 70
+      ? "danger"
+      : score >= 35
+        ? "rising"
+        : "low";
+
+    return { score, status };
+  }
+
+  private updateMayorOfficeRiskLevel(addWarning = false): boolean {
+    const previous = this.mayorOffice.riskLevel;
+    const risk = this.calculateMayorOfficeRisk();
+    this.mayorOffice.riskLevel = risk.status;
+
+    if (addWarning && previous !== risk.status && risk.status !== "low") {
+      const warningTitle = risk.status === "danger"
+        ? "Предупреждение: риск мэра критический"
+        : "Предупреждение: риск мэра растёт";
+      const hasRecentWarning = this.mayorOffice.operations
+        .slice(0, 5)
+        .some(operation => operation.type === "system" && operation.title === warningTitle);
+      if (!hasRecentWarning) {
+        this.addMayorOfficeOperation({
+          type: "system",
+          title: warningTitle,
+          amount: 0,
+          offshoreDelta: 0,
+          corruptionDelta: 0,
+          riskDelta: 0,
+        });
+      }
+    }
+
+    return previous !== risk.status;
+  }
+
+  private getMayorOfficeAssassinationChance(): number {
+    if (this.state.gameStatus !== "active" || this.state.postgameMode) return 0;
+
+    const risk = this.calculateMayorOfficeRisk();
+    if (risk.status !== "danger" || risk.score < MAYOR_OFFICE_ASSASSINATION_MIN_RISK) return 0;
+
+    const riskPressure = clamp(
+      (risk.score - MAYOR_OFFICE_ASSASSINATION_MIN_RISK) / (100 - MAYOR_OFFICE_ASSASSINATION_MIN_RISK),
+      0,
+      1,
+    );
+    const rawChance =
+      MAYOR_OFFICE_ASSASSINATION_MIN_HOURLY_CHANCE +
+      (MAYOR_OFFICE_ASSASSINATION_MAX_HOURLY_CHANCE - MAYOR_OFFICE_ASSASSINATION_MIN_HOURLY_CHANCE) * riskPressure;
+    const securityFactor = this.mayorOffice.securityLevel >= 2
+      ? 0.35
+      : this.mayorOffice.securityLevel === 1
+        ? 0.65
+        : 1;
+
+    return Math.round(rawChance * securityFactor * 10000) / 10000;
+  }
+
+  private processMayorOfficeSecurityExpiration(): boolean {
+    if (this.mayorOffice.securityLevel <= 0 || this.mayorOffice.securityExpiresTick === null) return false;
+    if (this.state.tick < this.mayorOffice.securityExpiresTick) {
+      this.mayorOffice.securityTicksRemaining = this.mayorOffice.securityExpiresTick - this.state.tick;
+      return false;
+    }
+
+    this.mayorOffice.securityLevel = 0;
+    this.mayorOffice.securityExpiresTick = null;
+    this.mayorOffice.securityTicksRemaining = 0;
+    this.addMayorOfficeOperation({
+      type: "system",
+      title: "Срок личной охраны истёк",
+      amount: 0,
+      offshoreDelta: 0,
+      corruptionDelta: 0,
+      riskDelta: 0,
+    });
+    return true;
+  }
+
+  private processMayorOfficeCorruptionDecay(): boolean {
+    if (this.state.gameStatus !== "active" || this.mayorOffice.corruption <= 0) return false;
+
+    const cutoffTick = this.state.tick - MAYOR_OFFICE_TICKS_PER_DAY;
+    const hadSuspiciousOperation = this.mayorOffice.operations.some(operation =>
+      operation.corruptionDelta > 0 && operation.tick >= cutoffTick,
+    );
+    if (hadSuspiciousOperation) return false;
+
+    const decay = Math.min(this.mayorOffice.corruption, MAYOR_OFFICE_CORRUPTION_DECAY_PER_QUIET_DAY);
+    this.mayorOffice.corruption = Math.round((this.mayorOffice.corruption - decay) * 10) / 10;
+    this.addMayorOfficeOperation({
+      type: "system",
+      title: "Коррупционный след снизился",
+      amount: 0,
+      offshoreDelta: 0,
+      corruptionDelta: -decay,
+      riskDelta: -decay,
+    });
+    return true;
+  }
+
+  private async tryMayorAssassination(): Promise<boolean> {
+    const chance = this.getMayorOfficeAssassinationChance();
+    if (chance <= 0 || Math.random() >= chance) return false;
+
+    this.state.gameStatus = "defeat";
+    this.state.gameOutcomeReason = "Мэр убит: личный риск перешёл в критическую угрозу.";
+    this.state.postgameMode = false;
+    this.state.running = false;
+    if (this.timer !== null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+
+    this.addMayorOfficeOperation({
+      type: "system",
+      title: "Покушение на мэра: партия завершена",
+      amount: 0,
+      offshoreDelta: 0,
+      corruptionDelta: 0,
+      riskDelta: chance,
+    });
+    await this.saveMayorOffice();
+    logger.warn({ tick: this.state.tick, day: this.state.gameDay, chance }, "Mayor assassinated");
+    return true;
+  }
+
+  private addMayorOfficeOperation(operation: Omit<MayorOfficeOperation, "id" | "day" | "tick">): void {
+    this.mayorOffice.operations.unshift({
+      id: `mo-${this.state.tick}-${this.mayorOffice.operations.length + 1}`,
+      day: this.state.gameDay,
+      tick: this.state.tick,
+      ...operation,
+    });
+    this.mayorOffice.operations = this.mayorOffice.operations.slice(0, MAYOR_OFFICE_OPERATIONS_LIMIT);
+  }
+
+  private getMayorOfficeDealCatalog() {
+    return MAYOR_OFFICE_DISTRICT_DEALS.map(deal => ({
+      id: deal.id,
+      districtId: deal.districtId,
+      title: deal.title,
+      levels: Object.fromEntries(
+        Object.entries(MAYOR_OFFICE_DEAL_LEVELS).map(([level, rules]) => [
+          level,
+          Math.round(deal.baseAmount * rules.scale * 100) / 100,
+        ]),
+      ) as Record<MayorOfficeActionLevel, number>,
+    }));
+  }
+
+  private getMayorOfficePurchaseCatalog() {
+    return MAYOR_OFFICE_PURCHASES.map(purchase => ({
+      item: purchase.item,
+      title: purchase.title,
+      cost: purchase.cost,
+      securityDelta: purchase.securityDelta,
+      securityDurationDays: purchase.securityDurationDays,
+      luxuryDelta: purchase.luxuryDelta,
+      statusDelta: purchase.statusDelta,
+      corruptionDelta: purchase.corruptionDelta,
+      povertyBacklash: purchase.povertyBacklash,
+    }));
+  }
+
+  private getAverageDistrictPoverty(): number {
+    if (DISTRICTS.length === 0) return 0;
+    const total = DISTRICTS.reduce((sum, district) => {
+      const metrics = this.getDistrictMetrics(district.id) ?? district.metrics;
+      return sum + metrics.poverty;
+    }, 0);
+    return total / DISTRICTS.length;
+  }
+
+  private applyMayorOfficeLuxuryBacklash(purchase: MayorOfficePurchaseDefinition): boolean {
+    if (!purchase.povertyBacklash) return false;
+
+    const averagePoverty = this.getAverageDistrictPoverty();
+    if (averagePoverty < 45) return false;
+
+    const backlashScale = clamp((averagePoverty - 40) / 35, 0.15, 1.5);
+    this.districtInvestmentReputationDelta = {
+      ...this.districtInvestmentReputationDelta,
+      residents: clamp(
+        this.districtInvestmentReputationDelta.residents - Math.round((purchase.luxuryDelta * 0.8 + purchase.statusDelta * 0.5) * backlashScale * 10) / 10,
+        -20,
+        20,
+      ),
+      government: clamp(
+        this.districtInvestmentReputationDelta.government - Math.round((purchase.luxuryDelta * 0.4 + purchase.statusDelta * 0.4) * backlashScale * 10) / 10,
+        -20,
+        20,
+      ),
+    };
+    return true;
+  }
+
+  private applyServiceBudgetSkimDistrictImpact(
+    districtId: string,
+    service: DistrictServiceType,
+    metricPenalty: number,
+  ): boolean {
+    let changed = false;
+    if (service === "utility") {
+      changed = this.updateDistrictMetric(districtId, "infrastructure", -metricPenalty) || changed;
+      changed = this.updateDistrictMetric(districtId, "comfort", -metricPenalty * 0.5) || changed;
+      changed = this.updateDistrictMetric(districtId, "accidentRisk", metricPenalty) || changed;
+    } else if (service === "police") {
+      changed = this.updateDistrictMetric(districtId, "safety", -metricPenalty) || changed;
+      changed = this.updateDistrictMetric(districtId, "mayorReputationResidents", -metricPenalty * 0.4) || changed;
+      changed = this.updateDistrictMetric(districtId, "accidentRisk", metricPenalty * 0.5) || changed;
+    } else {
+      changed = this.updateDistrictMetric(districtId, "safety", -metricPenalty * 0.5) || changed;
+      changed = this.updateDistrictMetric(districtId, "infrastructure", -metricPenalty * 0.4) || changed;
+      changed = this.updateDistrictMetric(districtId, "accidentRisk", metricPenalty) || changed;
+    }
+    return changed;
+  }
+
   private getDistrictIncidentSnapshot(status?: DistrictIncidentStatus): DistrictIncident[] {
     return this.districtIncidents
       .filter(incident => status ? incident.status === status : true)
@@ -2792,6 +3416,73 @@ class SimulationEngine {
     this.residentRequestReputationDelta = clamp(this.residentRequestReputationDelta + delta, -10, 5);
   }
 
+  private updateDistrictMetric(districtId: string, metric: keyof DistrictMetricOverrides, delta: number): boolean {
+    const district = DISTRICTS.find(item => item.id === districtId);
+    if (!district) return false;
+
+    const metrics = this.getDistrictMetrics(districtId) ?? district.metrics;
+    const currentValue = Number(metrics[metric] ?? district.metrics[metric]);
+    const nextValue = Math.round(clamp(currentValue + delta, 0, 100) * 10) / 10;
+    if (nextValue === currentValue) return false;
+
+    const overrides = {
+      ...(this.districtMetricOverrides.get(districtId) ?? {}),
+      [metric]: nextValue,
+    };
+    this.districtMetricOverrides.set(districtId, this.normalizeDistrictMetricOverrides(districtId, overrides));
+    return true;
+  }
+
+  private applyDistrictIncidentConsequences(
+    incident: DistrictIncident,
+    unresolvedFactor: number,
+  ): { affectedResidents: number; metricsChanged: boolean } {
+    const factor = clamp(unresolvedFactor, 0, 1.5);
+    if (factor <= 0) return { affectedResidents: 0, metricsChanged: false };
+
+    const severityFactor = incident.severity / 100;
+    const needImpact = Math.round((2 + severityFactor * 10) * factor * 10) / 10;
+    let affectedResidents = 0;
+
+    const affectAgent = (agent: AgentState, needs: Array<keyof AgentState["needs"]>) => {
+      for (const need of needs) {
+        agent.needs[need] = clamp(agent.needs[need] - needImpact);
+      }
+      agent.mood = clamp(agent.mood - needImpact * 0.35);
+      agent.needs.wellbeing = clamp(agent.needs.wellbeing - needImpact * 0.45);
+      this.syncResidentRequestAgent(agent);
+      affectedResidents++;
+    };
+
+    for (const agent of this.agents.values()) {
+      if (this.getResidentDistrict(agent.id) !== DISTRICTS.find(district => district.id === incident.districtId)?.name) continue;
+      if (incident.type === "utility_failure") {
+        affectAgent(agent, ["comfort", "housingSafety"]);
+      } else if (incident.type === "fire") {
+        affectAgent(agent, ["physicalSafety", "housingSafety"]);
+      } else if (incident.type === "protest") {
+        affectAgent(agent, ["physicalSafety", "socialRating"]);
+      } else {
+        affectAgent(agent, ["wellbeing"]);
+      }
+    }
+
+    let metricsChanged = false;
+    const metricImpact = Math.round((1 + severityFactor * 4) * factor * 10) / 10;
+    if (incident.type === "utility_failure") {
+      metricsChanged = this.updateDistrictMetric(incident.districtId, "comfort", -metricImpact) || metricsChanged;
+      metricsChanged = this.updateDistrictMetric(incident.districtId, "infrastructure", -metricImpact * 0.8) || metricsChanged;
+    } else if (incident.type === "fire") {
+      metricsChanged = this.updateDistrictMetric(incident.districtId, "safety", -metricImpact) || metricsChanged;
+      metricsChanged = this.updateDistrictMetric(incident.districtId, "infrastructure", -metricImpact * 0.5) || metricsChanged;
+    } else if (incident.type === "protest") {
+      metricsChanged = this.updateDistrictMetric(incident.districtId, "safety", -metricImpact * 0.7) || metricsChanged;
+      metricsChanged = this.updateDistrictMetric(incident.districtId, "mayorReputationResidents", -metricImpact) || metricsChanged;
+    }
+
+    return { affectedResidents, metricsChanged };
+  }
+
   private createDistrictIncidentRecord(
     districtId: string,
     type: DistrictIncidentType,
@@ -2822,8 +3513,10 @@ class SimulationEngine {
     let changed = false;
     for (const incident of this.districtIncidents) {
       if (incident.status === "active" && this.state.tick >= incident.deadlineTick) {
+        const consequences = this.applyDistrictIncidentConsequences(incident, 1);
         incident.status = "expired";
         this.applyDistrictIncidentReputationDelta(-incident.ignoredPenalty);
+        if (consequences.metricsChanged) changed = true;
         changed = true;
       }
     }
@@ -2833,9 +3526,25 @@ class SimulationEngine {
   private districtServiceStaffCount(districtId: string, service: DistrictServiceType): number {
     const state = this.districtServices.get(districtId);
     if (!state) return 0;
+    const rawCount = service === "utility"
+      ? state.staff.utilityWorkers
+      : service === "police"
+        ? state.staff.policeOfficers
+        : state.staff.firefighters;
+    const penalty = clamp(state.efficiencyPenalty[service] ?? 0, 0, 0.8);
+    return Math.max(0, rawCount * (1 - penalty));
+  }
+
+  private districtServiceRawStaffCount(districtId: string, service: DistrictServiceType): number {
+    const state = this.districtServices.get(districtId);
+    if (!state) return 0;
     if (service === "utility") return state.staff.utilityWorkers;
     if (service === "police") return state.staff.policeOfficers;
     return state.staff.firefighters;
+  }
+
+  private districtServiceBudgetPerTick(districtId: string, service: DistrictServiceType): number {
+    return Math.round(this.districtServiceRawStaffCount(districtId, service) * this.config.baseSalary * 1.1 * 100) / 100;
   }
 
   private districtServiceBaseline(districtId: string, service: DistrictServiceType): number {
@@ -2924,50 +3633,66 @@ class SimulationEngine {
     return 0;
   }
 
-  private generateDailyDistrictIncidents(): boolean {
+  private districtIncidentHourlyActivityWeight(): number {
+    const hour = this.state.gameHour;
+    if (hour >= 1 && hour < 6) return 0.45;
+    if (hour >= 6 && hour < 10) return 0.85;
+    if (hour >= 10 && hour < 18) return 1.15;
+    if (hour >= 18 && hour < 23) return 1.3;
+    return 0.7;
+  }
+
+  private generateHourlyDistrictIncidents(): boolean {
     if (this.state.gameStatus !== "active") return false;
 
     let changed = false;
     const incidentTypes: DistrictIncidentType[] = ["utility_failure", "fire", "protest"];
+    const attemptChance = clamp(
+      HOURLY_DISTRICT_INCIDENT_ATTEMPT_CHANCE * this.districtIncidentHourlyActivityWeight(),
+      0,
+      0.65,
+    );
+
     for (const district of DISTRICTS) {
+      if (Math.random() >= attemptChance) continue;
+
       const activeDistrictIncidents = this.districtIncidents.filter(incident =>
         incident.districtId === district.id &&
         incident.status === "active"
       );
-      if (activeDistrictIncidents.length >= 2) continue;
+      if (activeDistrictIncidents.length >= MAX_ACTIVE_DISTRICT_INCIDENTS_PER_DISTRICT) continue;
 
       const candidates = incidentTypes
-        .filter(type => !activeDistrictIncidents.some(incident => incident.type === type))
         .map(type => ({
           type,
           risk: this.districtIncidentRisk(district.id, type),
+          activeCount: activeDistrictIncidents.filter(incident => incident.type === type).length,
         }))
-        .filter(candidate => candidate.risk > 0.18);
+        .filter(candidate =>
+          candidate.risk > 0.12 &&
+          candidate.activeCount < MAX_ACTIVE_DISTRICT_INCIDENTS_PER_TYPE
+        );
       if (candidates.length === 0) continue;
 
-      candidates.sort((a, b) => b.risk - a.risk);
-      for (const candidate of candidates) {
-        if (activeDistrictIncidents.length >= 2) break;
-        const probability = clamp(0.015 + Math.pow(candidate.risk, 1.35) * 0.22, 0, 0.34);
-        if (Math.random() >= probability) continue;
+      const totalWeight = candidates.reduce((sum, candidate) => sum + Math.max(0.05, candidate.risk), 0);
+      let roll = Math.random() * totalWeight;
+      const candidate = candidates.find(item => {
+        roll -= Math.max(0.05, item.risk);
+        return roll <= 0;
+      }) ?? candidates[0];
 
-        const severity = 18 + candidate.risk * 62 + rand(-6, 8);
-        const deadlineTicks = candidate.type === "fire"
-          ? 24
-          : candidate.type === "protest"
-            ? 48
-            : 36;
-        const incident = this.createDistrictIncidentRecord(
-          district.id,
-          candidate.type,
-          severity,
-          deadlineTicks,
-        );
-        this.districtIncidents.unshift(incident);
-        activeDistrictIncidents.push(incident);
-        changed = true;
-        break;
-      }
+      const probability = clamp(0.55 + candidate.risk * 0.43, 0, 0.98);
+      if (Math.random() >= probability) continue;
+
+      const severity = 18 + candidate.risk * 62 + rand(-6, 8);
+      const incident = this.createDistrictIncidentRecord(
+        district.id,
+        candidate.type,
+        severity,
+        DISTRICT_INCIDENT_RESPONSE_DEADLINE_TICKS,
+      );
+      this.districtIncidents.unshift(incident);
+      changed = true;
     }
 
     return changed;
@@ -3049,12 +3774,16 @@ class SimulationEngine {
     const startTime = Date.now();
 
     this.state.tick++;
+    const mayorSecurityChanged = this.processMayorOfficeSecurityExpiration();
     const districtQueueChanged = this.processDistrictServiceHiringQueue();
     const districtIncidentChanged = this.expireDistrictIncidents();
     if (districtQueueChanged) {
       await this.saveDistrictServices();
     }
-    if (districtIncidentChanged) await this.saveDistrictIncidents();
+    if (districtIncidentChanged) {
+      await this.saveDistrictIncidents();
+      await this.saveDistrictInvestments();
+    }
     this.state.gameHour = (this.state.gameHour + 1) % 24;
     if (this.state.gameHour === 0) this.state.gameDay++;
 
@@ -3068,11 +3797,17 @@ class SimulationEngine {
     if (isNewDay) {
       this.applyDailyDecisionEffects();
       this.generateFactionDemands();
-      if (this.generateDailyDistrictIncidents()) {
-        await this.saveDistrictIncidents();
-      }
+    }
+    if (this.generateHourlyDistrictIncidents()) {
+      await this.saveDistrictIncidents();
+    }
+    const mayorCorruptionChanged = isNewDay ? this.processMayorOfficeCorruptionDecay() : false;
+    const mayorRiskChanged = this.updateMayorOfficeRiskLevel(true);
+    if (mayorSecurityChanged || mayorCorruptionChanged || mayorRiskChanged) {
+      await this.saveMayorOffice();
     }
     this.residentRequestReputationDelta = clamp(this.residentRequestReputationDelta * 0.995, -5, 5);
+    this.expireResidentRequests();
     this.generateResidentRequests();
 
     const decisionModifiers = this.getDecisionModifiers();
@@ -4210,22 +4945,20 @@ class SimulationEngine {
     this.updateGoodPrices();
     await this.updateBusinesses();
 
-    // Corporate tax: once per game day, 5% of profitable business balance.
-    // Raw producers (farms, workshops) are exempt — they are supply-chain
-    // infrastructure and their economics depend on B2B revenue, not profit margins.
+    // Corporate tax: once per game day, current taxRate of positive commercial business balance.
+    // Public-sector services are excluded because they are already funded from the city budget.
     if (isNewDay) {
       let corpTax = 0;
       for (const biz of this.businesses.values()) {
-        if (biz.type === "farm" || biz.type === "workshop") continue;
+        if (PUBLIC_SECTOR_TYPES.has(biz.type)) continue;
         if (biz.balance > 500) {
-          const tax = biz.balance * 0.05;
+          const tax = biz.balance * taxRate;
           biz.balance -= tax;
           corpTax += tax;
         }
       }
       runningBudget += corpTax;
       taxRevenue += corpTax;
-      this.state.totalTaxCollected += corpTax;
 
       // ── Экономический подъём: ежедневный бонус к балансу потребительских бизнесов
       if (this.isEconomicBoomActive()) {
@@ -4493,7 +5226,10 @@ class SimulationEngine {
     }
 
     this.syncCounter++;
-    this.applyGoalEvaluation(gdp);
+    const mayorAssassinated = await this.tryMayorAssassination();
+    if (!mayorAssassinated) {
+      this.applyGoalEvaluation(gdp);
+    }
     if (this.syncCounter >= 1) {
       this.syncCounter = 0;
       const dbStart = Date.now();
@@ -5687,6 +6423,7 @@ class SimulationEngine {
 
     let progress = 0;
     let rawVictory = false;
+    let alternativeVictory = false;
 
     switch (this.state.goalType) {
       case "crisis_recovery":
@@ -5732,13 +6469,22 @@ class SimulationEngine {
       }
       case "corruption_network": {
         const shadowContracts = this.getPlayerDecisionCount(decree => decree.decisionId === "government_shadow_contracts");
+        const offshoreVictoryReady =
+          this.mayorOffice.offshoreBalance >= 100000 &&
+          this.state.gameStatus === "active" &&
+          residentsScore >= 20 &&
+          (this.state.gameDay > this.state.dayLimit || this.state.gameDay >= activeDaysRequired);
         progress = (
           Math.min(1, this.state.governmentBudget / 140000) +
           Math.min(1, businessScore / 76) +
           Math.min(1, residentsScore / 45) +
-          Math.min(1, shadowContracts / 4)
+          Math.max(
+            Math.min(1, shadowContracts / 4),
+            Math.min(1, this.mayorOffice.offshoreBalance / 100000),
+          )
         ) / 4;
         rawVictory = this.state.governmentBudget >= 140000 && businessScore >= 76 && residentsScore >= 45 && avgSocialRating >= 35 && shadowContracts >= 4;
+        alternativeVictory = offshoreVictoryReady;
         break;
       }
       case "balanced":
@@ -5752,7 +6498,7 @@ class SimulationEngine {
         break;
     }
 
-    const victory = rawVictory && enoughChoices;
+    const victory = (rawVictory && enoughChoices) || alternativeVictory;
     if (rawVictory && !victory) {
       progress = Math.min(progress, 0.96);
     }
@@ -6367,6 +7113,7 @@ class SimulationEngine {
         declineReputationPenalty: Math.round(rand(0.1, 0.5) * 10) / 10,
         createdTick: this.state.tick,
         createdDay: this.state.gameDay,
+        deadlineTick: this.state.tick + RESIDENT_REQUEST_DEADLINE_TICKS,
       });
     };
 
@@ -6435,6 +7182,32 @@ class SimulationEngine {
     }
   }
 
+  private applyResidentRequestDecline(request: ResidentRequestRecord): void {
+    const agent = this.agents.get(request.agentId);
+    this.residentRequestReputationDelta = clamp(this.residentRequestReputationDelta - request.declineReputationPenalty, -5, 5);
+    if (agent) {
+      agent.mood = clamp(agent.mood - rand(2, 5));
+      agent.needs.wellbeing = clamp(agent.needs.wellbeing - rand(1, 3));
+      this.syncResidentRequestAgent(agent);
+    }
+  }
+
+  private expireResidentRequests(): boolean {
+    let changed = false;
+    const activeRequests: ResidentRequestRecord[] = [];
+    for (const request of this.residentRequests) {
+      const deadlineTick = request.deadlineTick ?? request.createdTick + RESIDENT_REQUEST_DEADLINE_TICKS;
+      if (this.state.tick >= deadlineTick) {
+        this.applyResidentRequestDecline(request);
+        changed = true;
+      } else {
+        activeRequests.push({ ...request, deadlineTick });
+      }
+    }
+    if (changed) this.residentRequests = activeRequests;
+    return changed;
+  }
+
   getResidentRequestsState() {
     return {
       currentDay: this.state.gameDay,
@@ -6443,6 +7216,8 @@ class SimulationEngine {
       reputationDelta: Math.round(this.residentRequestReputationDelta * 10) / 10,
       requests: this.residentRequests.map(request => ({
         ...request,
+        deadlineTick: request.deadlineTick ?? request.createdTick + RESIDENT_REQUEST_DEADLINE_TICKS,
+        ticksRemaining: Math.max(0, (request.deadlineTick ?? request.createdTick + RESIDENT_REQUEST_DEADLINE_TICKS) - this.state.tick),
         residentGender: request.residentGender ?? this.agents.get(request.agentId)?.gender ?? "male",
         canHelp: this.state.gameStatus === "active" && this.state.governmentBudget >= request.helpCost,
       })),
@@ -6517,12 +7292,7 @@ class SimulationEngine {
         this.syncResidentRequestAgent(agent);
       }
     } else if (action === "decline") {
-      this.residentRequestReputationDelta = clamp(this.residentRequestReputationDelta - request.declineReputationPenalty, -5, 5);
-      if (agent) {
-        agent.mood = clamp(agent.mood - rand(2, 5));
-        agent.needs.wellbeing = clamp(agent.needs.wellbeing - rand(1, 3));
-        this.syncResidentRequestAgent(agent);
-      }
+      this.applyResidentRequestDecline(request);
     } else {
       this.residentRequests.splice(index, 0, request);
       throw new Error("UNKNOWN_RESIDENT_REQUEST_ACTION");
@@ -6655,6 +7425,208 @@ class SimulationEngine {
     return incident ? { ...incident } : null;
   }
 
+  getMayorOffice() {
+    return {
+      offshoreBalance: Math.round(this.mayorOffice.offshoreBalance * 100) / 100,
+      corruption: Math.round(this.mayorOffice.corruption * 10) / 10,
+      securityLevel: Math.round(this.mayorOffice.securityLevel),
+      securityExpiresTick: this.mayorOffice.securityExpiresTick,
+      securityTicksRemaining: this.mayorOffice.securityExpiresTick
+        ? Math.max(0, this.mayorOffice.securityExpiresTick - this.state.tick)
+        : 0,
+      luxuryLevel: Math.round(this.mayorOffice.luxuryLevel),
+      statusLevel: Math.round(this.mayorOffice.statusLevel),
+      riskLevel: this.calculateMayorOfficeRisk().status,
+      deals: this.getMayorOfficeDealCatalog(),
+      purchases: this.getMayorOfficePurchaseCatalog(),
+      operations: this.mayorOffice.operations.map(operation => ({ ...operation })),
+    };
+  }
+
+  async skimCityBudgetToMayorOffice(level: MayorOfficeActionLevel) {
+    if (this.state.gameStatus !== "active") {
+      throw new Error("GAME_FINISHED");
+    }
+
+    const rules = MAYOR_OFFICE_CITY_BUDGET_SKIM[level];
+    if (!rules) {
+      throw new Error("UNKNOWN_MAYOR_OFFICE_OPERATION_LEVEL");
+    }
+
+    const forecast = this.getGovernmentForecast(this.getWorkingAgeUnemploymentRate());
+    const allowedBudget = Math.max(0, Math.min(this.state.governmentBudget, forecast.freeManagementBudget));
+    const amount = Math.round(allowedBudget * rules.share * 100) / 100;
+    if (amount <= 0) {
+      throw new Error("NOT_ENOUGH_FREE_MANAGEMENT_BUDGET");
+    }
+
+    this.state.governmentBudget = Math.max(0, this.state.governmentBudget - amount);
+    this.mayorOffice.offshoreBalance = Math.round((this.mayorOffice.offshoreBalance + amount) * 100) / 100;
+    this.mayorOffice.corruption = Math.round(clamp(this.mayorOffice.corruption + rules.corruptionDelta, 0, 100) * 10) / 10;
+    this.updateMayorOfficeRiskLevel(true);
+    this.districtInvestmentReputationDelta = {
+      ...this.districtInvestmentReputationDelta,
+      residents: clamp(
+        this.districtInvestmentReputationDelta.residents + rules.residentsReputationDelta,
+        -20,
+        20,
+      ),
+      government: clamp(
+        this.districtInvestmentReputationDelta.government + rules.governmentReputationDelta,
+        -20,
+        20,
+      ),
+    };
+    this.addMayorOfficeOperation({
+      type: "skim_city_budget",
+      title: "Пополнение оффшора из бюджета города",
+      amount,
+      offshoreDelta: amount,
+      corruptionDelta: rules.corruptionDelta,
+      riskDelta: rules.corruptionDelta,
+    });
+
+    await this.saveMayorOffice();
+    await this.saveDistrictInvestments();
+    await this.persistState();
+    return this.getMayorOffice();
+  }
+
+  async skimServiceBudgetToMayorOffice(
+    districtId: string,
+    service: DistrictServiceType,
+    level: MayorOfficeActionLevel,
+  ) {
+    if (this.state.gameStatus !== "active") {
+      throw new Error("GAME_FINISHED");
+    }
+
+    const district = DISTRICTS.find(item => item.id === districtId);
+    const serviceState = this.districtServices.get(districtId);
+    if (!district || !serviceState) {
+      throw new Error("UNKNOWN_DISTRICT");
+    }
+
+    const rules = MAYOR_OFFICE_SERVICE_BUDGET_SKIM[level];
+    if (!rules) {
+      throw new Error("UNKNOWN_MAYOR_OFFICE_OPERATION_LEVEL");
+    }
+
+    const serviceBudget = this.districtServiceBudgetPerTick(districtId, service);
+    const amount = Math.round(serviceBudget * rules.share * 100) / 100;
+    if (amount <= 0) {
+      throw new Error("SERVICE_BUDGET_EMPTY");
+    }
+
+    serviceState.efficiencyPenalty = {
+      ...serviceState.efficiencyPenalty,
+      [service]: clamp((serviceState.efficiencyPenalty[service] ?? 0) + rules.efficiencyPenaltyDelta, 0, 0.8),
+    };
+    this.mayorOffice.offshoreBalance = Math.round((this.mayorOffice.offshoreBalance + amount) * 100) / 100;
+    this.mayorOffice.corruption = Math.round(clamp(this.mayorOffice.corruption + rules.corruptionDelta, 0, 100) * 10) / 10;
+    this.updateMayorOfficeRiskLevel(true);
+    const metricsChanged = this.applyServiceBudgetSkimDistrictImpact(districtId, service, rules.metricPenalty);
+    this.addMayorOfficeOperation({
+      type: "skim_service_budget",
+      title: `Вывод из службы: ${this.serviceLabel(service)} / ${district.name}`,
+      amount,
+      offshoreDelta: amount,
+      corruptionDelta: rules.corruptionDelta,
+      riskDelta: rules.corruptionDelta,
+    });
+
+    await this.saveMayorOffice();
+    await this.saveDistrictServices();
+    if (metricsChanged) await this.saveDistrictInvestments();
+    return this.getMayorOffice();
+  }
+
+  async provideMayorOfficeService(districtId: string, dealId: string, level: MayorOfficeActionLevel) {
+    if (this.state.gameStatus !== "active") {
+      throw new Error("GAME_FINISHED");
+    }
+
+    const district = DISTRICTS.find(item => item.id === districtId);
+    if (!district) {
+      throw new Error("UNKNOWN_DISTRICT");
+    }
+
+    const deal = MAYOR_OFFICE_DISTRICT_DEALS.find(item => item.id === dealId && item.districtId === districtId);
+    if (!deal) {
+      throw new Error("UNKNOWN_MAYOR_OFFICE_DEAL");
+    }
+
+    const rules = MAYOR_OFFICE_DEAL_LEVELS[level];
+    if (!rules) {
+      throw new Error("UNKNOWN_MAYOR_OFFICE_OPERATION_LEVEL");
+    }
+
+    const amount = Math.round(deal.baseAmount * rules.scale * 100) / 100;
+    const corruptionDelta = Math.round(deal.baseCorruptionDelta * rules.scale * 10) / 10;
+    this.mayorOffice.offshoreBalance = Math.round((this.mayorOffice.offshoreBalance + amount) * 100) / 100;
+    this.mayorOffice.corruption = Math.round(clamp(this.mayorOffice.corruption + corruptionDelta, 0, 100) * 10) / 10;
+    this.updateMayorOfficeRiskLevel(true);
+
+    let metricsChanged = false;
+    for (const [metric, rawDelta] of Object.entries(deal.metricDeltas) as Array<[keyof DistrictMetricOverrides, number]>) {
+      const delta = Math.round(rawDelta * rules.scale * 10) / 10;
+      metricsChanged = this.updateDistrictMetric(districtId, metric, delta) || metricsChanged;
+    }
+
+    this.addMayorOfficeOperation({
+      type: "provide_service",
+      title: `${rules.label} услуга: ${deal.title} / ${district.name}`,
+      amount,
+      offshoreDelta: amount,
+      corruptionDelta,
+      riskDelta: corruptionDelta,
+    });
+
+    await this.saveMayorOffice();
+    if (metricsChanged) await this.saveDistrictInvestments();
+    return this.getMayorOffice();
+  }
+
+  async purchaseMayorOfficeItem(item: MayorOfficePurchaseType) {
+    if (this.state.gameStatus !== "active") {
+      throw new Error("GAME_FINISHED");
+    }
+
+    const purchase = MAYOR_OFFICE_PURCHASES.find(definition => definition.item === item);
+    if (!purchase) {
+      throw new Error("UNKNOWN_MAYOR_OFFICE_PURCHASE");
+    }
+    if (this.mayorOffice.offshoreBalance < purchase.cost) {
+      throw new Error("NOT_ENOUGH_OFFSHORE_BALANCE");
+    }
+
+    this.mayorOffice.offshoreBalance = Math.round((this.mayorOffice.offshoreBalance - purchase.cost) * 100) / 100;
+    if (purchase.securityDelta > 0) {
+      const durationTicks = purchase.securityDurationDays * MAYOR_OFFICE_TICKS_PER_DAY;
+      this.mayorOffice.securityLevel = Math.min(2, Math.max(this.mayorOffice.securityLevel, purchase.securityDelta));
+      this.mayorOffice.securityExpiresTick = this.state.tick + durationTicks;
+      this.mayorOffice.securityTicksRemaining = durationTicks;
+    }
+    this.mayorOffice.luxuryLevel = Math.min(10, Math.max(0, this.mayorOffice.luxuryLevel + purchase.luxuryDelta));
+    this.mayorOffice.statusLevel = Math.min(10, Math.max(0, this.mayorOffice.statusLevel + purchase.statusDelta));
+    this.mayorOffice.corruption = Math.round(clamp(this.mayorOffice.corruption + purchase.corruptionDelta, 0, 100) * 10) / 10;
+    this.updateMayorOfficeRiskLevel(true);
+    const backlashApplied = this.applyMayorOfficeLuxuryBacklash(purchase);
+
+    this.addMayorOfficeOperation({
+      type: "purchase",
+      title: `Покупка: ${purchase.title}`,
+      amount: purchase.cost,
+      offshoreDelta: -purchase.cost,
+      corruptionDelta: purchase.corruptionDelta,
+      riskDelta: purchase.corruptionDelta,
+    });
+
+    await this.saveMayorOffice();
+    if (backlashApplied) await this.saveDistrictInvestments();
+    return this.getMayorOffice();
+  }
+
   async respondDistrictIncident(id: string) {
     if (this.state.gameStatus !== "active") {
       throw new Error("GAME_FINISHED");
@@ -6681,13 +7653,16 @@ class SimulationEngine {
       partial = effectiveness < 1;
     }
 
-    const reputationDelta = -Math.round(incident.basePenalty * (1 - effectiveness) * 10) / 10;
+    const unresolvedFactor = 1 - effectiveness;
+    const consequences = this.applyDistrictIncidentConsequences(incident, unresolvedFactor);
+    const reputationDelta = -Math.round(incident.basePenalty * unresolvedFactor * 10) / 10;
     if (reputationDelta !== 0) {
       this.applyDistrictIncidentReputationDelta(reputationDelta);
     }
     incident.status = "resolved";
 
     await this.saveDistrictIncidents();
+    if (consequences.metricsChanged) await this.saveDistrictInvestments();
     await this.persistState();
     return {
       incident: { ...incident },
@@ -6710,11 +7685,13 @@ class SimulationEngine {
       throw new Error("DISTRICT_INCIDENT_NOT_ACTIVE");
     }
 
+    const consequences = this.applyDistrictIncidentConsequences(incident, 1);
     const reputationDelta = -incident.ignoredPenalty;
     this.applyDistrictIncidentReputationDelta(reputationDelta);
     incident.status = "ignored";
 
     await this.saveDistrictIncidents();
+    if (consequences.metricsChanged) await this.saveDistrictInvestments();
     await this.persistState();
     return {
       incident: { ...incident },
@@ -6774,7 +7751,7 @@ class SimulationEngine {
     districtId: string,
     type: DistrictIncidentType,
     severity = 25,
-    deadlineTicks = 48,
+    deadlineTicks = DISTRICT_INCIDENT_RESPONSE_DEADLINE_TICKS,
   ) {
     if (!DISTRICTS.some(district => district.id === districtId)) {
       throw new Error("UNKNOWN_DISTRICT");
@@ -7201,10 +8178,16 @@ class SimulationEngine {
     return result;
   }
 
-  getGovernment() {
+  private getWorkingAgeUnemploymentRate(): number {
     const workingAge = Array.from(this.agents.values()).filter(a => !a.isRetired && a.age >= 18 && a.age <= 65);
+    if (workingAge.length === 0) return 0;
     const unemployed = workingAge.filter(a => a.employerId == null && !this.isDistrictServiceAgent(a.id));
-    const unemploymentRate = workingAge.length > 0 ? unemployed.length / workingAge.length : 0;
+    return unemployed.length / workingAge.length;
+  }
+
+  getGovernment() {
+    const unemploymentRate = this.getWorkingAgeUnemploymentRate();
+    const forecast = this.getGovernmentForecast(unemploymentRate);
     return {
       budget: Math.round(this.state.governmentBudget * 100) / 100,
       totalTaxCollected: Math.round(this.state.totalTaxCollected * 100) / 100,
@@ -7218,6 +8201,110 @@ class SimulationEngine {
       grantsIssuedLastDay: this.lastGrantsIssued,
       unemploymentRatePct: Math.round(unemploymentRate * 1000) / 10,
       grantThresholdPct: 28,
+      forecast,
+    };
+  }
+
+  private getGovernmentForecast(unemploymentRate: number) {
+    const decisionModifiers = this.getDecisionModifiers();
+    const taxRate = clamp(this.config.taxRate + decisionModifiers.taxDelta, 0, 0.6);
+    const baseSalary = this.config.baseSalary;
+
+    let expectedPayrollTaxIncome = 0;
+    let retiredCount = 0;
+    const publicPayrollByBusiness = new Map<number, number>();
+    for (const agent of this.agents.values()) {
+      if (agent.isRetired) {
+        retiredCount++;
+        continue;
+      }
+      if (agent.employerId == null) continue;
+      const salary = calcSalary(baseSalary, agent.careerLevel);
+      expectedPayrollTaxIncome += salary * taxRate;
+
+      const business = this.businesses.get(agent.employerId);
+      if (business && PUBLIC_SECTOR_TYPES.has(business.type)) {
+        publicPayrollByBusiness.set(business.id, (publicPayrollByBusiness.get(business.id) ?? 0) + salary);
+      }
+    }
+    let expectedBusinessTaxIncome = 0;
+    for (const business of this.businesses.values()) {
+      if (PUBLIC_SECTOR_TYPES.has(business.type)) continue;
+      if (business.balance > 500) {
+        expectedBusinessTaxIncome += business.balance * taxRate;
+      }
+    }
+    const expectedTaxIncome = expectedPayrollTaxIncome + expectedBusinessTaxIncome;
+
+    const expectedPensionExpenses = retiredCount * baseSalary * this.config.pensionRate;
+
+    let expectedPublicServiceExpenses = 0;
+    for (const business of this.businesses.values()) {
+      if (!PUBLIC_SECTOR_TYPES.has(business.type)) continue;
+      const payroll = publicPayrollByBusiness.get(business.id) ?? 0;
+      expectedPublicServiceExpenses += payroll > 0
+        ? Math.round(payroll * 1.1)
+        : Math.round(baseSalary * 0.5);
+    }
+
+    let expectedDistrictServiceExpenses = 0;
+    for (const districtService of this.districtServices.values()) {
+      const staffCount =
+        districtService.staff.utilityWorkers +
+        districtService.staff.policeOfficers +
+        districtService.staff.firefighters;
+      expectedDistrictServiceExpenses += Math.round(staffCount * baseSalary * 1.1);
+    }
+
+    const rawSupportEligible = Array.from(this.businesses.values())
+      .filter(business =>
+        (business.type === "farm" || business.type === "workshop") &&
+        business.balance <= -500
+      ).length;
+    const expectedRawSupport = Math.min(1000, rawSupportEligible * 150);
+
+    const bailoutEligible = Array.from(this.businesses.values())
+      .filter(business =>
+        (business.type === "food" || business.type === "service") &&
+        !business.hasReceivedBailout &&
+        business.balance <= -150
+      ).length;
+    const expectedBailouts = Math.min(5, bailoutEligible) * 800;
+
+    const expectedSupportExpenses = expectedRawSupport + expectedBailouts;
+    const averageGrantCost = Math.round(
+      Object.values(BUSINESS_LAUNCH_COSTS).reduce((sum, cost) => sum + cost, 0) /
+      Object.values(BUSINESS_LAUNCH_COSTS).length
+    );
+    const expectedGrantCount = unemploymentRate >= 0.6 ? 3 : unemploymentRate >= 0.4 ? 2 : unemploymentRate >= 0.28 ? 1 : 0;
+    const expectedGrantExpenses = expectedGrantCount * averageGrantCost;
+
+    const requiredExpenses =
+      expectedPensionExpenses +
+      expectedPublicServiceExpenses +
+      expectedDistrictServiceExpenses +
+      expectedSupportExpenses +
+      expectedGrantExpenses;
+    const netDailyProjection = expectedTaxIncome - requiredExpenses;
+    const projectedBudgetTomorrow = this.state.governmentBudget + netDailyProjection;
+    const freeManagementBudget = this.state.governmentBudget - requiredExpenses;
+    const dailyBurn = Math.max(0, requiredExpenses - expectedTaxIncome);
+    const operatingDays = dailyBurn > 0 ? this.state.governmentBudget / dailyBurn : 999;
+
+    return {
+      expectedTaxIncome: Math.round(expectedTaxIncome * 100) / 100,
+      expectedPayrollTaxIncome: Math.round(expectedPayrollTaxIncome * 100) / 100,
+      expectedBusinessTaxIncome: Math.round(expectedBusinessTaxIncome * 100) / 100,
+      expectedPensionExpenses: Math.round(expectedPensionExpenses * 100) / 100,
+      expectedPublicServiceExpenses: Math.round(expectedPublicServiceExpenses * 100) / 100,
+      expectedDistrictServiceExpenses: Math.round(expectedDistrictServiceExpenses * 100) / 100,
+      expectedSupportExpenses: Math.round(expectedSupportExpenses * 100) / 100,
+      expectedGrantExpenses: Math.round(expectedGrantExpenses * 100) / 100,
+      requiredExpenses: Math.round(requiredExpenses * 100) / 100,
+      netDailyProjection: Math.round(netDailyProjection * 100) / 100,
+      projectedBudgetTomorrow: Math.round(projectedBudgetTomorrow * 100) / 100,
+      freeManagementBudget: Math.round(freeManagementBudget * 100) / 100,
+      operatingDays: Math.round(operatingDays * 10) / 10,
     };
   }
 

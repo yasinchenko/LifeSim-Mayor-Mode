@@ -51,13 +51,13 @@ import {
   HeartPulse,
   Home,
   Inbox,
+  KeyRound,
   Landmark,
   LineChart as LineChartIcon,
   MapPin,
   Pause,
   Play,
   Save,
-  Settings,
   Shield,
   Sparkles,
   Trophy,
@@ -69,9 +69,12 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 import { toast } from "sonner";
 import EventFeed from "@/components/event-feed";
 import PopulationChart from "@/components/population-chart";
+import AudioSettingsPanel from "@/components/audio/audio-settings-panel";
 import { cn } from "@/lib/utils";
 import { saveGame } from "@/lib/saves";
 import { useLanguage } from "@/contexts/language-context";
+import { useAudio } from "@/contexts/audio-context";
+import { dayPhaseForHour } from "@/lib/day-phase";
 import {
   Dialog,
   DialogContent,
@@ -150,13 +153,6 @@ const CIVIC_CATEGORY_STYLES: Record<CivicCategory, {
   },
 };
 
-const SECTION_LINKS = [
-  { href: "/agents", label: "Жители", icon: Users },
-  { href: "/economy", label: "Экономика", icon: Briefcase },
-  { href: "/government", label: "Государство", icon: Landmark },
-  { href: "/simulation-settings", label: "Симуляция", icon: Settings },
-];
-
 const SCENARIO_LABELS: Record<string, string> = {
   balanced: "Сбалансированный город",
   crisis: "Кризисный мандат",
@@ -233,6 +229,25 @@ function serviceTypeLabel(service: DistrictIncident["requiredService"]) {
   return "не требуется";
 }
 
+function districtServiceReadiness(district: District, incident: DistrictIncident) {
+  if (incident.requiredService === "utility") {
+    const baseline = Math.max(1, district.baselineServices.utilityWorkers);
+    const current = district.services.utilityWorkers;
+    return { current, baseline, percent: Math.min(100, Math.round((current / baseline) * 100)) };
+  }
+  if (incident.requiredService === "police") {
+    const baseline = Math.max(1, district.baselineServices.policeOfficers);
+    const current = district.services.policeOfficers;
+    return { current, baseline, percent: Math.min(100, Math.round((current / baseline) * 100)) };
+  }
+  if (incident.requiredService === "fire") {
+    const baseline = Math.max(1, district.baselineServices.firefighters);
+    const current = district.services.firefighters;
+    return { current, baseline, percent: Math.min(100, Math.round((current / baseline) * 100)) };
+  }
+  return null;
+}
+
 function categoryStyle(category: CivicCategory) {
   return CIVIC_CATEGORY_STYLES[category];
 }
@@ -269,13 +284,6 @@ function getCitizenPortrait(request: ResidentRequest): string {
   return `${assetsBase}/${portrait}`;
 }
 
-function mapPhaseForHour(hour: number) {
-  if (hour >= 5 && hour < 10) return "morning";
-  if (hour >= 10 && hour < 17) return "day";
-  if (hour >= 17 && hour < 21) return "evening";
-  return "night";
-}
-
 const MAP_PHASE_ASSETS = [
   { phase: "morning", src: MAP_MORNING_ASSET },
   { phase: "day", src: MAP_DAY_ASSET },
@@ -302,9 +310,34 @@ function getScenarioLabel(scenarioType: string, t: Translation) {
   return t.dashboard.balancedScenario;
 }
 
+function useIncidentAudio(districts: District[] | undefined, playIncidentAlert: () => void) {
+  const initializedRef = useRef(false);
+  const activeIncidentIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!districts) return;
+    const activeIncidentIds = new Set(
+      districts.flatMap(district => district.incidents
+        .filter(incident => incident.status === "active")
+        .map(incident => incident.id))
+    );
+
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      activeIncidentIdsRef.current = activeIncidentIds;
+      return;
+    }
+
+    const hasNewIncident = [...activeIncidentIds].some(id => !activeIncidentIdsRef.current.has(id));
+    activeIncidentIdsRef.current = activeIncidentIds;
+    if (hasNewIncident) playIncidentAlert();
+  }, [districts, playIncidentAlert]);
+}
+
 export default function Dashboard() {
   const qc = useQueryClient();
   const { t } = useLanguage();
+  const audio = useAudio();
   const [tickFlash, setTickFlash] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
@@ -353,6 +386,24 @@ export default function Dashboard() {
       refetchInterval: running ? 3000 : 30000,
     },
   });
+
+  useEffect(() => {
+    audio.setMusicMode("city");
+    return () => {
+      audio.setMusicMode("none");
+      audio.setCityPhase(null);
+    };
+  }, [audio]);
+
+  useEffect(() => {
+    if (!state) {
+      audio.setCityPhase(null);
+      return;
+    }
+    audio.setCityPhase(dayPhaseForHour(state.gameHour));
+  }, [audio, state?.gameHour]);
+
+  useIncidentAudio(districts, audio.playIncidentAlert);
 
   const hireDistrictStaffMutation = useHireDistrictStaff({
     mutation: {
@@ -685,13 +736,6 @@ function GameTopBar({
 
       <nav className="flex items-center justify-start lg:justify-end gap-2 overflow-x-auto">
         <MetricsDialog state={state} summary={summary} chartData={chartData} running={running} />
-        <Link
-          href="/simulation-settings"
-          className="inline-flex items-center gap-2 rounded border border-border/70 bg-black/28 px-3 py-2 text-xs font-medium text-foreground backdrop-blur hover:border-primary/50 hover:text-primary whitespace-nowrap"
-        >
-          <Settings className="w-3.5 h-3.5" />
-          {t.menu.simulationSettings}
-        </Link>
         <button
           type="button"
           onClick={onOpenMenu}
@@ -753,19 +797,16 @@ function GameMenuOverlay({
             {isSaving ? t.game.saving : t.game.save}
           </button>
           <Link
-            href="/simulation-settings"
-            className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground hover:opacity-90"
-          >
-            <Settings className="w-4 h-4" />
-            {t.menu.simulationSettings}
-          </Link>
-          <Link
             href="/"
             className="inline-flex items-center gap-2 rounded border border-border bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground hover:opacity-90"
           >
             <Home className="w-4 h-4" />
             {t.dashboard.menu}
           </Link>
+        </div>
+
+        <div className="mt-4 border-t border-border/60 pt-4">
+          <AudioSettingsPanel />
         </div>
 
         <p className="mt-4 text-[11px] text-muted-foreground">Esc</p>
@@ -792,6 +833,7 @@ function LeftStatusPanel({
       <CoreGauge label={t.dashboard.society} value={health.society} icon={Users} href="/agents" category="society" />
       <CoreGauge label={t.dashboard.economy} value={health.economy} icon={Briefcase} href="/economy" category="economy" />
       <CoreGauge label={t.dashboard.government} value={health.government} icon={Landmark} href="/government" category="government" />
+      <PrivateOfficeCard />
 
       <div className="border-t border-border/60 pt-3 space-y-2">
         <MiniReadout label={t.dashboard.goalProgress} value={`${state.goalProgress}%`} tone={toneFor(state.goalProgress)} />
@@ -835,8 +877,9 @@ function CityMapStage({
 }) {
   const districts = useMemo(() => buildDistricts(districtModels, state, summary, decisions, health), [districtModels, state, summary, decisions, health]);
   const [selectedId, setSelectedId] = useState("city-hall");
+  const [isDistrictPanelOpen, setIsDistrictPanelOpen] = useState(true);
   const selected = districts.find(district => district.id === selectedId) ?? districts[0];
-  const activeMapPhase = mapPhaseForHour(state.gameHour);
+  const activeMapPhase = dayPhaseForHour(state.gameHour);
 
   if (!selected) {
     return (
@@ -869,6 +912,7 @@ function CityMapStage({
   };
   const queueCount = serviceState.hiringQueue.reduce((sum, item) => sum + item.count, 0);
   const activeIncidents = selected.incidents.filter(incident => incident.status === "active");
+  const currentTick = state.tick;
 
   return (
     <section className="relative min-h-[560px] xl:min-h-0 rounded border border-border/70 bg-black/25 overflow-hidden">
@@ -897,19 +941,31 @@ function CityMapStage({
           <button
             key={district.id}
             type="button"
-            onClick={() => setSelectedId(district.id)}
+            onClick={() => {
+              setSelectedId(district.id);
+              setIsDistrictPanelOpen(true);
+            }}
             className={cn(
-              "absolute -translate-x-1/2 -translate-y-1/2 rounded border backdrop-blur px-3 py-2 text-left shadow-lg transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary/60"
+              "absolute -translate-x-1/2 -translate-y-1/2 rounded border backdrop-blur px-3 py-2 text-left shadow-lg transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary/60",
+              activeIncidentCount > 0 && "ring-2 ring-destructive/70 shadow-[0_0_22px_rgba(248,113,113,0.42)]"
             )}
             style={{
               left: district.x,
               top: district.y,
-              borderColor: active ? category.border : "rgba(255,255,255,0.18)",
-              background: active ? `linear-gradient(135deg, ${category.soft}, rgba(10,16,24,0.62))` : "rgba(10,16,24,0.52)",
+              borderColor: activeIncidentCount > 0 ? "rgba(248,113,113,0.86)" : active ? category.border : "rgba(255,255,255,0.18)",
+              background: activeIncidentCount > 0
+                ? "linear-gradient(135deg, rgba(127,29,29,0.72), rgba(10,16,24,0.66))"
+                : active
+                  ? `linear-gradient(135deg, ${category.soft}, rgba(10,16,24,0.62))`
+                  : "rgba(10,16,24,0.52)",
             }}
           >
             <div className="flex items-center gap-2">
-              <Icon className="w-4 h-4 shrink-0" style={{ color: category.color }} />
+              {activeIncidentCount > 0 ? (
+                <AlertTriangle className="w-4 h-4 shrink-0 animate-pulse text-destructive" />
+              ) : (
+                <Icon className="w-4 h-4 shrink-0" style={{ color: category.color }} />
+              )}
               <div>
                 <p className="text-[10px] font-semibold leading-none whitespace-nowrap">{district.name}</p>
                 <p className="text-[9px] text-muted-foreground mt-1">
@@ -932,7 +988,17 @@ function CityMapStage({
         </div>
       </div>
 
-      <div className="absolute left-4 bottom-4 right-4 rounded border border-border/70 bg-black/58 backdrop-blur p-3">
+      {isDistrictPanelOpen && (
+      <div className="absolute left-4 bottom-4 right-4 rounded border border-border/70 bg-black/58 backdrop-blur p-3 pr-12">
+        <button
+          type="button"
+          onClick={() => setIsDistrictPanelOpen(false)}
+          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded border border-white/15 bg-white/8 text-muted-foreground hover:bg-white/12 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60"
+          aria-label="Закрыть окно района"
+          title="Закрыть окно района"
+        >
+          <XCircle className="w-4 h-4" />
+        </button>
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded bg-white/8 border border-white/12 grid place-items-center shrink-0">
             <SelectedIcon className="w-5 h-5" style={{ color: categoryStyle(selected.category).color }} />
@@ -998,35 +1064,43 @@ function CityMapStage({
               </div>
               {activeIncidents.length > 0 ? (
                 <div className="mt-2 grid sm:grid-cols-2 gap-2">
-                  {activeIncidents.slice(0, 4).map(incident => (
-                    <div key={incident.id} className="rounded border border-destructive/25 bg-destructive/8 px-2 py-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-semibold">{incidentTypeLabel(incident.type)}</span>
-                        <span className="text-[10px] text-muted-foreground">{incidentStatusLabel(incident.status)}</span>
+                  {activeIncidents.slice(0, 8).map(incident => {
+                    const readiness = districtServiceReadiness(selected, incident);
+                    return (
+                      <div key={incident.id} className="rounded border border-destructive/25 bg-destructive/8 px-2 py-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold">{incidentTypeLabel(incident.type)}</span>
+                          <span className="text-[10px] text-muted-foreground">{incidentStatusLabel(incident.status)}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Сила {incident.severity} / осталось {Math.max(0, incident.deadlineTick - currentTick)} ч / служба: {serviceTypeLabel(incident.requiredService)}
+                        </p>
+                        {readiness && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Готовность службы: {readiness.current}/{readiness.baseline}, {readiness.percent < 100 ? "реакция частичная " : "реакция полная "}{readiness.percent}%
+                          </p>
+                        )}
+                        <div className="mt-1.5 flex gap-1.5">
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => onRespondIncident(incident.id)}
+                            className="inline-flex items-center justify-center rounded bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground disabled:opacity-50"
+                          >
+                            Отреагировать
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => onIgnoreIncident(incident.id)}
+                            className="inline-flex items-center justify-center rounded border border-white/15 bg-white/8 px-2 py-1 text-[10px] text-muted-foreground disabled:opacity-50"
+                          >
+                            Игнорировать
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        Сила {incident.severity} / срок день {incident.deadlineDay} / служба: {serviceTypeLabel(incident.requiredService)}
-                      </p>
-                      <div className="mt-1.5 flex gap-1.5">
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => onRespondIncident(incident.id)}
-                          className="inline-flex items-center justify-center rounded bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground disabled:opacity-50"
-                        >
-                          Отреагировать
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => onIgnoreIncident(incident.id)}
-                          className="inline-flex items-center justify-center rounded border border-white/15 bg-white/8 px-2 py-1 text-[10px] text-muted-foreground disabled:opacity-50"
-                        >
-                          Игнорировать
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-[11px] text-muted-foreground mt-1">Активных происшествий нет.</p>
@@ -1040,6 +1114,7 @@ function CityMapStage({
           </div>
         </div>
       </div>
+      )}
     </section>
   );
 }
@@ -1064,28 +1139,29 @@ function DistrictBoundaryOverlay({ districts, selectedId }: { districts: ReturnT
       {districts.map(boundary => {
         const active = boundary.id === selectedId;
         const category = categoryStyle(boundary.category);
+        const hasIncident = boundary.incidents.some(incident => incident.status === "active");
         return (
           <g key={boundary.id}>
             <polygon
               points={boundary.boundaryPoints}
-              fill={active ? category.color : "transparent"}
-              fillOpacity={active ? 0.14 : 0}
+              fill={hasIncident ? "rgb(239,68,68)" : active ? category.color : "transparent"}
+              fillOpacity={hasIncident ? 0.18 : active ? 0.14 : 0}
               stroke="rgba(0,0,0,0.72)"
-              strokeWidth={active ? 13 : 5}
-              strokeOpacity={active ? 1 : 0.42}
+              strokeWidth={hasIncident ? 15 : active ? 13 : 5}
+              strokeOpacity={hasIncident || active ? 1 : 0.42}
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
             />
             <polygon
               points={boundary.boundaryPoints}
               fill="transparent"
-              stroke={category.color}
-              strokeOpacity={active ? 0.9 : 0.34}
-              strokeWidth={active ? 4 : 2}
-              strokeDasharray={active ? "0" : "10 12"}
+              stroke={hasIncident ? "rgb(248,113,113)" : category.color}
+              strokeOpacity={hasIncident ? 0.95 : active ? 0.9 : 0.34}
+              strokeWidth={hasIncident ? 5 : active ? 4 : 2}
+              strokeDasharray={hasIncident ? "14 8" : active ? "0" : "10 12"}
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
-              filter={active ? "url(#districtBoundaryGlow)" : undefined}
+              filter={hasIncident || active ? "url(#districtBoundaryGlow)" : undefined}
             />
           </g>
         );
@@ -1194,7 +1270,7 @@ function ActionDock({
   }, [decisions]);
 
   return (
-    <section className="rounded border border-border/70 bg-black/45 backdrop-blur p-3 min-h-[118px]">
+    <section className="min-w-0 rounded border border-border/70 bg-black/45 backdrop-blur p-3 min-h-[118px]">
       <div className="flex items-center justify-between gap-3 mb-2">
         <PanelTitle icon={Zap} title="Доступные действия" badge={String(actions.length)} />
         {decisions && (
@@ -1205,10 +1281,12 @@ function ActionDock({
       </div>
 
       {actions.length > 0 ? (
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2">
-          {actions.slice(0, 3).map(action => (
-            <ActionCard key={action.id} decision={action} isIssuing={isIssuing} onIssue={onIssue} />
-          ))}
+        <div className="signals-scrollbar min-w-0 overflow-x-auto pb-1 pt-1 pr-1">
+          <div className="flex w-max min-w-full justify-center gap-2 snap-x snap-mandatory">
+            {actions.map(action => (
+              <ActionCard key={action.id} decision={action} isIssuing={isIssuing} onIssue={onIssue} />
+            ))}
+          </div>
         </div>
       ) : (
         <div className="h-[68px] flex items-center justify-center rounded border border-dashed border-border/70 text-xs text-muted-foreground">
@@ -1329,9 +1407,9 @@ function FinalReportCard({
           <Play className="w-3.5 h-3.5" />
           {isContinuing ? "Продолжаем..." : "Продолжить игру"}
         </button>
-        <Link href="/simulation-settings" className="inline-flex items-center justify-center gap-2 rounded bg-primary px-4 py-2 text-xs font-medium text-primary-foreground">
-          <Flag className="w-3.5 h-3.5" />
-          Новая партия
+        <Link href="/" className="inline-flex items-center justify-center gap-2 rounded bg-primary px-4 py-2 text-xs font-medium text-primary-foreground">
+          <Home className="w-3.5 h-3.5" />
+          Главное меню
         </Link>
       </div>
     </div>
@@ -1411,6 +1489,23 @@ function PanelTitle({ icon: Icon, title, badge }: { icon: ElementType; title: st
   );
 }
 
+function PrivateOfficeCard() {
+  return (
+    <Link href="/mayor-office" className="block rounded focus:outline-none focus:ring-2 focus:ring-primary/60">
+      <div className="rounded border border-[hsla(282,52%,78%,0.42)] bg-[hsla(282,52%,78%,0.10)] p-3 transition-transform hover:scale-[1.01]">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-[hsl(282,52%,78%)]" />
+            <span className="text-sm font-medium">Кабинет мэра</span>
+          </div>
+          <ArrowRight className="w-4 h-4 text-[hsl(282,52%,78%)]" />
+        </div>
+        <p className="mt-1 text-[10px] text-muted-foreground">Оффшор, риск и частные сделки</p>
+      </div>
+    </Link>
+  );
+}
+
 function CoreGauge({
   label,
   value,
@@ -1469,6 +1564,8 @@ function RequestCard({
 }) {
   const requestCategory = categoryStyle(categoryFromRequest(request));
   const portrait = getCitizenPortrait(request);
+  const ticksRemaining = Math.max(0, request.ticksRemaining ?? 0);
+  const deadlineTone = ticksRemaining <= 3 ? "#8e2630" : "#5a4630";
   return (
     <div
       className="rounded border p-2.5 overflow-hidden shadow-[0_1px_0_rgba(255,255,255,0.16)_inset,0_10px_24px_rgba(0,0,0,0.24)]"
@@ -1503,7 +1600,7 @@ function RequestCard({
           <p className="text-[11px] text-[#4a3825] leading-relaxed mt-2 line-clamp-2">{request.problem}</p>
         </div>
       </div>
-      <div className="mt-2.5 grid grid-cols-2 gap-2 text-[10px]">
+      <div className="mt-2.5 grid grid-cols-3 gap-2 text-[10px]">
         <div className="rounded border border-[#6b4922]/24 bg-[#3b2a18]/12 px-2 py-1">
           <span className="text-[#5a4630]">Помочь</span>
           <span className="block font-semibold tabular-nums text-[#12684f]">
@@ -1514,6 +1611,12 @@ function RequestCard({
           <span className="text-[#5a4630]">Отказать</span>
           <span className="block font-semibold text-[#8e2630]">
             -{request.declineReputationPenalty.toFixed(1).replace(".", ",")} доверия
+          </span>
+        </div>
+        <div className="rounded border border-[#6b4922]/24 bg-[#3b2a18]/12 px-2 py-1">
+          <span className="text-[#5a4630]">Срок</span>
+          <span className="block font-semibold tabular-nums" style={{ color: deadlineTone }}>
+            {ticksRemaining} ч
           </span>
         </div>
       </div>
@@ -1547,28 +1650,33 @@ function ActionCard({ decision, isIssuing, onIssue }: {
   const decisionCategory = categoryStyle(categoryFromSide(decision.side));
   return (
     <div
-      className="rounded border p-3"
-      style={{ borderColor: decisionCategory.border, background: `linear-gradient(135deg, ${decisionCategory.soft}, rgba(255,255,255,0.04))` }}
+      className="group flex h-[142px] w-[218px] shrink-0 snap-start flex-col rounded border p-2.5 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(0,0,0,0.28)] focus-within:-translate-y-0.5 focus-within:shadow-[0_10px_24px_rgba(0,0,0,0.28)] sm:w-[236px]"
+      style={{
+        borderColor: decisionCategory.border,
+        background: `linear-gradient(135deg, ${decisionCategory.soft}, rgba(255,255,255,0.04))`,
+        "--action-hover-border": decisionCategory.color,
+        "--action-hover-bg": decisionCategory.soft,
+      } as React.CSSProperties}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-widest truncate" style={{ color: decisionCategory.text }}>
             {decisionCategory.label} / {decision.sideLabel}
           </p>
-          <h3 className="text-sm font-semibold leading-tight mt-1">{decision.title}</h3>
+          <h3 className="text-sm font-semibold leading-tight mt-1 line-clamp-2">{decision.title}</h3>
         </div>
-        <Sparkles className="w-4 h-4 shrink-0" style={{ color: decisionCategory.color }} />
+        <Sparkles className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110" style={{ color: decisionCategory.color }} />
       </div>
       <p className="text-[11px] text-muted-foreground line-clamp-2 mt-2">{decision.impactSummary}</p>
-      <div className="flex items-center justify-between gap-2 mt-3">
+      <div className="mt-auto flex items-center justify-between gap-2 pt-2">
         <span className="text-[10px] text-muted-foreground">Бюджет {Math.round(decision.budgetCost).toLocaleString()}</span>
         <button
           onClick={() => onIssue(decision.id)}
           disabled={isIssuing || !decision.canIssue}
-          className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded bg-primary px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground transition-all hover:bg-primary/90 hover:shadow-[0_0_0_2px_rgba(139,224,190,0.20)] focus:outline-none focus:ring-2 focus:ring-primary/55 active:translate-y-px disabled:opacity-50"
         >
           Принять
-          <ArrowRight className="w-3 h-3" />
+          <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
         </button>
       </div>
     </div>

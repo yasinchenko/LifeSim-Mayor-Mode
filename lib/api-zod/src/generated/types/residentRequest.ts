@@ -22,5 +22,7 @@ export interface ResidentRequest {
   declineReputationPenalty: number;
   createdTick: number;
   createdDay: number;
+  deadlineTick: number;
+  ticksRemaining: number;
   canHelp: boolean;
 }

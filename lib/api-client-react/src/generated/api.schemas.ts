@@ -9,6 +9,127 @@ export interface HealthStatus {
   status: string;
 }
 
+export type MayorOfficeRiskLevel =
+  (typeof MayorOfficeRiskLevel)[keyof typeof MayorOfficeRiskLevel];
+
+export const MayorOfficeRiskLevel = {
+  low: "low",
+  rising: "rising",
+  danger: "danger",
+} as const;
+
+export type MayorOfficeOperationType =
+  (typeof MayorOfficeOperationType)[keyof typeof MayorOfficeOperationType];
+
+export const MayorOfficeOperationType = {
+  skim_city_budget: "skim_city_budget",
+  skim_service_budget: "skim_service_budget",
+  provide_service: "provide_service",
+  purchase: "purchase",
+  system: "system",
+} as const;
+
+export type MayorOfficeActionLevel =
+  (typeof MayorOfficeActionLevel)[keyof typeof MayorOfficeActionLevel];
+
+export const MayorOfficeActionLevel = {
+  minimal: "minimal",
+  medium: "medium",
+  maximum: "maximum",
+} as const;
+
+export type MayorOfficePurchaseType =
+  (typeof MayorOfficePurchaseType)[keyof typeof MayorOfficePurchaseType];
+
+export const MayorOfficePurchaseType = {
+  private_security: "private_security",
+  professional_security: "professional_security",
+  villa: "villa",
+  expensive_car: "expensive_car",
+  luxury: "luxury",
+} as const;
+
+export interface MayorOfficeOperation {
+  id: string;
+  day: number;
+  tick: number;
+  type: MayorOfficeOperationType;
+  title: string;
+  amount: number;
+  offshoreDelta: number;
+  corruptionDelta: number;
+  riskDelta: number;
+}
+
+export interface MayorOfficeDealLevels {
+  minimal: number;
+  medium: number;
+  maximum: number;
+}
+
+export interface MayorOfficeDeal {
+  id: string;
+  districtId: string;
+  title: string;
+  levels: MayorOfficeDealLevels;
+}
+
+export interface MayorOfficePurchase {
+  item: MayorOfficePurchaseType;
+  title: string;
+  cost: number;
+  securityDelta: number;
+  securityDurationDays: number;
+  luxuryDelta: number;
+  statusDelta: number;
+  corruptionDelta: number;
+  povertyBacklash: boolean;
+}
+
+export interface MayorOfficeState {
+  offshoreBalance: number;
+  corruption: number;
+  securityLevel: number;
+  /** @nullable */
+  securityExpiresTick: number | null;
+  securityTicksRemaining: number;
+  luxuryLevel: number;
+  statusLevel: number;
+  riskLevel: MayorOfficeRiskLevel;
+  deals: MayorOfficeDeal[];
+  purchases: MayorOfficePurchase[];
+  operations: MayorOfficeOperation[];
+}
+
+export interface MayorOfficeSkimCityBudgetRequest {
+  level: MayorOfficeActionLevel;
+}
+
+export type DistrictServiceType =
+  (typeof DistrictServiceType)[keyof typeof DistrictServiceType];
+
+export const DistrictServiceType = {
+  utility: "utility",
+  police: "police",
+  fire: "fire",
+} as const;
+
+export interface MayorOfficeSkimServiceBudgetRequest {
+  districtId: string;
+  service: DistrictServiceType;
+  level: MayorOfficeActionLevel;
+}
+
+export interface MayorOfficeProvideServiceRequest {
+  districtId: string;
+  dealId: string;
+  level: MayorOfficeActionLevel;
+}
+
+export interface MayorOfficePurchaseRequest {
+  item: MayorOfficePurchaseType;
+}
+
 export interface DistrictMetrics {
   /** Public safety, 0-100 */
   safety: number;
@@ -25,15 +146,6 @@ export interface DistrictMetrics {
   /** Infrastructure condition, 0-100 */
   infrastructure: number;
 }
-
-export type DistrictServiceType =
-  (typeof DistrictServiceType)[keyof typeof DistrictServiceType];
-
-export const DistrictServiceType = {
-  utility: "utility",
-  police: "police",
-  fire: "fire",
-} as const;
 
 export type DistrictInvestmentType =
   (typeof DistrictInvestmentType)[keyof typeof DistrictInvestmentType];
@@ -110,6 +222,12 @@ export interface DistrictServiceExpenses {
   total: number;
 }
 
+export interface DistrictServiceStaff {
+  utilityWorkers: number;
+  policeOfficers: number;
+  firefighters: number;
+}
+
 export interface DistrictServiceState {
   utilityWorkers: number;
   policeOfficers: number;
@@ -146,6 +264,7 @@ export interface District {
   mapY: string;
   boundaryPoints: string;
   metrics: DistrictMetrics;
+  baselineServices: DistrictServiceStaff;
   services: DistrictServiceState;
   incidents: DistrictIncident[];
 }
@@ -533,6 +652,8 @@ export interface ResidentRequest {
   declineReputationPenalty: number;
   createdTick: number;
   createdDay: number;
+  deadlineTick: number;
+  ticksRemaining: number;
   canHelp: boolean;
 }
 
@@ -676,6 +797,22 @@ export interface Good {
   supply: number;
 }
 
+export interface GovernmentForecast {
+  expectedTaxIncome: number;
+  expectedPayrollTaxIncome: number;
+  expectedBusinessTaxIncome: number;
+  expectedPensionExpenses: number;
+  expectedPublicServiceExpenses: number;
+  expectedDistrictServiceExpenses: number;
+  expectedSupportExpenses: number;
+  expectedGrantExpenses: number;
+  requiredExpenses: number;
+  netDailyProjection: number;
+  projectedBudgetTomorrow: number;
+  freeManagementBudget: number;
+  operatingDays: number;
+}
+
 export interface GovernmentState {
   budget: number;
   totalTaxCollected: number;
@@ -690,6 +827,7 @@ export interface GovernmentState {
   grantsIssuedLastDay: number;
   unemploymentRatePct: number;
   grantThresholdPct: number;
+  forecast: GovernmentForecast;
 }
 
 export interface SimConfig {

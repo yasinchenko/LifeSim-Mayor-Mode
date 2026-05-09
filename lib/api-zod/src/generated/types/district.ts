@@ -8,6 +8,7 @@
 import type { DistrictCategory } from "./districtCategory";
 import type { DistrictIncident } from "./districtIncident";
 import type { DistrictMetrics } from "./districtMetrics";
+import type { DistrictServiceStaff } from "./districtServiceStaff";
 import type { DistrictServiceState } from "./districtServiceState";
 
 export interface District {
@@ -18,6 +19,7 @@ export interface District {
   mapY: string;
   boundaryPoints: string;
   metrics: DistrictMetrics;
+  baselineServices: DistrictServiceStaff;
   services: DistrictServiceState;
   incidents: DistrictIncident[];
 }

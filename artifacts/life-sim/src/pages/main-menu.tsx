@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getGetSimulationStateQueryKey, useNewGame } from "@workspace/api-client-react";
@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { deleteSave, listSaves, loadSave, saveGame } from "@/lib/saves";
 import { cn } from "@/lib/utils";
 import { useLanguage, type Language } from "@/contexts/language-context";
+import { useAudio } from "@/contexts/audio-context";
+import AudioSettingsPanel from "@/components/audio/audio-settings-panel";
 
 const MAP_ASSET = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/assets/maps/city-map-night.webp`;
 
@@ -53,11 +55,18 @@ export default function MainMenu() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const { language, setLanguage, t } = useLanguage();
+  const audio = useAudio();
   const [view, setView] = useState<MenuView>("root");
   const [scenarioType, setScenarioType] = useState<Scenario>("balanced");
   const [goalType, setGoalType] = useState<Goal>("balanced");
   const [dayLimit, setDayLimit] = useState(32);
   const labels = OPTIONS[language];
+
+  useEffect(() => {
+    audio.setMusicMode("menu");
+    audio.setCityPhase(null);
+    return () => audio.setMusicMode("none");
+  }, [audio]);
 
   const savesQuery = useQuery({
     queryKey: ["save-slots"],
@@ -192,6 +201,7 @@ export default function MainMenu() {
           {view === "settings" && (
             <MenuPanel title={t.menu.settings} description={t.menu.language}>
               <LanguageToggle language={language} setLanguage={setLanguage} large />
+              <AudioSettingsPanel />
             </MenuPanel>
           )}
 

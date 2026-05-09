@@ -261,6 +261,7 @@
     scrollbar-color: hsl(173 34% 36% / 0.72) hsl(218 18% 18% / 0.72);
   }
   .signals-scrollbar::-webkit-scrollbar {
+    height: 10px;
     width: 10px;
   }
   .signals-scrollbar::-webkit-scrollbar-track {

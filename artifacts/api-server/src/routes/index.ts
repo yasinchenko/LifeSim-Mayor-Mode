@@ -10,6 +10,7 @@ import adminRouter from "./admin";
 import debugRouter from "./debug";
 import decisionsRouter from "./decisions";
 import districtsRouter from "./districts";
+import mayorOfficeRouter from "./mayor-office";
 
 const router: IRouter = Router();
 
@@ -23,6 +24,7 @@ router.use(configRouter);
 router.use(statsRouter);
 router.use(decisionsRouter);
 router.use(districtsRouter);
+router.use(mayorOfficeRouter);
 router.use(debugRouter);
 
 export default router;

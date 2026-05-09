@@ -3,10 +3,16 @@ import {
   getGetGovernmentQueryKey,
   useListBusinesses,
   getListBusinessesQueryKey,
+  type GovernmentForecast,
 } from "@workspace/api-client-react";
 import { Landmark, TrendingDown, TrendingUp, Percent, ShieldCheck, BookOpen, TreePine, Star, Briefcase, AlertTriangle } from "lucide-react";
 import StatCard from "@/components/stat-card";
+import CitySettingsPanel from "@/components/city-settings-panel";
 import { cn } from "@/lib/utils";
+
+function formatMoney(value: number, sign = false): string {
+  return `${sign && value > 0 ? "+" : ""}${Math.round(value).toLocaleString("ru-RU")}`;
+}
 
 export default function GovernmentPage() {
   const { data: gov, isLoading } = useGetGovernment({
@@ -23,7 +29,7 @@ export default function GovernmentPage() {
   const unemploymentHigh = gov ? gov.unemploymentRatePct >= gov.grantThresholdPct : false;
 
   return (
-    <div className="p-4 xl:p-6 space-y-4 max-w-none h-[calc(100vh-58px)] overflow-hidden flex flex-col">
+    <div className="mx-auto w-full max-w-6xl p-4 xl:p-6 space-y-4 min-h-[calc(100vh-58px)] overflow-y-auto">
       <div>
         <h1 className="text-base font-semibold text-foreground">Государство</h1>
         <p className="text-xs text-muted-foreground mt-0.5">Бюджет, налоги, субсидии и гранты</p>
@@ -36,7 +42,7 @@ export default function GovernmentPage() {
           ))}
         </div>
       ) : gov ? (
-        <div className="grid xl:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)] gap-4 min-h-0">
+        <div className="space-y-4">
           <div className="space-y-4 min-w-0">
           <div className="grid sm:grid-cols-3 2xl:grid-cols-6 gap-3">
             <StatCard
@@ -83,6 +89,8 @@ export default function GovernmentPage() {
             />
           </div>
 
+          <TreasuryForecastPanel forecast={gov.forecast} budget={gov.budget} />
+
           {/* Government Grants Panel */}
           <div className={cn(
             "bg-card border rounded p-4 space-y-3",
@@ -128,7 +136,7 @@ export default function GovernmentPage() {
           </div>
           </div>
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-1 gap-4 content-start min-w-0">
+          <div className="space-y-4 min-w-0">
           <div className="bg-card border border-card-border rounded p-4 space-y-4">
             <h2 className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">Параметры</h2>
             <div className="grid grid-cols-2 gap-4 text-xs">
@@ -211,11 +219,113 @@ export default function GovernmentPage() {
               </div>
             </div>
           </div>
+          <CitySettingsPanel />
           </div>
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">Нет данных</p>
       )}
+    </div>
+  );
+}
+
+function TreasuryForecastPanel({ forecast, budget }: { forecast: GovernmentForecast; budget: number }) {
+  const risk = forecast.projectedBudgetTomorrow < 0 || forecast.freeManagementBudget < 0;
+  const tight = !risk && forecast.freeManagementBudget < Math.max(2500, forecast.requiredExpenses * 0.35);
+  const toneClass = risk
+    ? "border-[hsl(351,72%,75%)]/45 bg-[hsl(351,72%,75%)]/5"
+    : tight
+      ? "border-[hsl(38,78%,74%)]/45 bg-[hsl(38,78%,74%)]/5"
+      : "border-primary/35 bg-primary/5";
+  const toneText = risk
+    ? "Риск дефицита"
+    : tight
+      ? "Запас ограничен"
+      : "Запас устойчивый";
+  const toneValueClass = risk
+    ? "text-[hsl(351,72%,75%)]"
+    : tight
+      ? "text-[hsl(38,78%,74%)]"
+      : "text-primary";
+
+  return (
+    <div className={cn("border rounded p-4 space-y-4", toneClass)}>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">Прогноз казны</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Расчёт на следующий игровой день с учётом текущих ставок, штата и обязательных выплат.
+          </p>
+        </div>
+        <span className={cn("rounded border px-2 py-1 text-[10px] font-semibold", toneValueClass)}>
+          {toneText}
+        </span>
+      </div>
+
+      <div className="grid md:grid-cols-4 gap-4 text-xs">
+        <ForecastReadout
+          label="Свободно на управление"
+          value={formatMoney(forecast.freeManagementBudget)}
+          detail={`казна сейчас ${formatMoney(budget)}`}
+          className={toneValueClass}
+        />
+        <ForecastReadout
+          label="Прогноз на завтра"
+          value={formatMoney(forecast.projectedBudgetTomorrow)}
+          detail={`${formatMoney(forecast.netDailyProjection, true)} за день`}
+          className={forecast.netDailyProjection >= 0 ? "text-primary" : "text-[hsl(351,72%,75%)]"}
+        />
+        <ForecastReadout
+          label="Ожидаемые налоги"
+          value={`+${formatMoney(forecast.expectedTaxIncome)}`}
+          detail={`зарплаты ${formatMoney(forecast.expectedPayrollTaxIncome)} + бизнес ${formatMoney(forecast.expectedBusinessTaxIncome)}`}
+          className="text-primary"
+        />
+        <ForecastReadout
+          label="Запас хода"
+          value={forecast.operatingDays >= 999 ? "∞" : `${forecast.operatingDays.toFixed(1)} дн.`}
+          detail="при текущем темпе"
+          className={toneValueClass}
+        />
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-x-6 gap-y-2 border-t border-border/60 pt-3 text-xs">
+        <ForecastLine label="Пенсии" value={forecast.expectedPensionExpenses} />
+        <ForecastLine label="Публичные службы" value={forecast.expectedPublicServiceExpenses} />
+        <ForecastLine label="Районные службы" value={forecast.expectedDistrictServiceExpenses} />
+        <ForecastLine label="Поддержки и спасение бизнеса" value={forecast.expectedSupportExpenses} />
+        <ForecastLine label="Ожидаемые гранты бизнесу" value={forecast.expectedGrantExpenses} />
+        <ForecastLine label="Обязательные расходы завтра" value={forecast.requiredExpenses} strong />
+      </div>
+    </div>
+  );
+}
+
+function ForecastReadout({
+  label,
+  value,
+  detail,
+  className,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  className: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-muted-foreground">{label}</p>
+      <p className={cn("mt-1 text-xl font-semibold tabular-nums", className)}>{value}</p>
+      <p className="mt-0.5 text-[10px] text-muted-foreground">{detail}</p>
+    </div>
+  );
+}
+
+function ForecastLine({ label, value, strong = false }: { label: string; value: number; strong?: boolean }) {
+  return (
+    <div className={cn("flex justify-between gap-3 py-1 border-b border-border/40", strong && "font-medium text-foreground")}>
+      <span className={strong ? "text-foreground" : "text-muted-foreground"}>{label}</span>
+      <span className="tabular-nums text-[hsl(351,72%,75%)]">-{formatMoney(value)}</span>
     </div>
   );
 }

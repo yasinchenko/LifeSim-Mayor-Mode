@@ -8,9 +8,11 @@ import AgentsPage from "@/pages/agents";
 import AgentDetailPage from "@/pages/agent-detail";
 import EconomyPage from "@/pages/economy";
 import GovernmentPage from "@/pages/government";
+import MayorOfficePage from "@/pages/mayor-office";
 import SettingsPage from "@/pages/settings";
 import Layout from "@/components/layout";
 import { LanguageProvider } from "@/contexts/language-context";
+import { AudioProvider } from "@/contexts/audio-context";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,6 +33,7 @@ function Router() {
         <Route path="/agents/:id" component={AgentDetailPage} />
         <Route path="/economy" component={EconomyPage} />
         <Route path="/government" component={GovernmentPage} />
+        <Route path="/mayor-office" component={MayorOfficePage} />
         <Route path="/simulation-settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
@@ -42,10 +45,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-          <Toaster />
-        </WouterRouter>
+        <AudioProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+            <Toaster />
+          </WouterRouter>
+        </AudioProvider>
       </LanguageProvider>
     </QueryClientProvider>
   );

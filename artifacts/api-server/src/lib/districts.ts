@@ -89,6 +89,7 @@ interface DistrictDefinition {
 }
 
 export interface District extends Omit<DistrictDefinition, "serviceStaff" | "hiringQueue"> {
+  baselineServices: DistrictServiceStaff;
   services: DistrictServiceState;
   incidents: DistrictIncident[];
 }
@@ -229,8 +230,8 @@ export const DISTRICTS: readonly DistrictDefinition[] = [
     id: "services",
     name: "Службы",
     category: "society",
-    mapX: "20%",
-    mapY: "56%",
+    mapX: "13%",
+    mapY: "39%",
     boundaryPoints: "45,250 445,165 755,330 705,580 525,805 170,790 35,600",
     metrics: {
       safety: 60,
@@ -300,6 +301,7 @@ export function getDistrictsWithServices(
       mapY: district.mapY,
       boundaryPoints: district.boundaryPoints,
       metrics: { ...district.metrics, ...overrides },
+      baselineServices: { ...district.serviceStaff },
       services: buildServiceState(
         serviceStates?.get(district.id)?.staff ?? district.serviceStaff,
         serviceStates?.get(district.id)?.hiringQueue ?? district.hiringQueue,

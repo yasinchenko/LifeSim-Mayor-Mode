@@ -1,18 +1,28 @@
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Building2 } from "lucide-react";
+import { useEffect } from "react";
+import { ArrowLeft, Building2, KeyRound } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
+import { useAudio } from "@/contexts/audio-context";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { t } = useLanguage();
+  const audio = useAudio();
   const isFullScreen = location === "/" || location === "/city";
   const sectionTitles: Record<string, string> = {
     "/agents": t.layout.residents,
     "/economy": t.layout.economy,
     "/government": t.layout.government,
+    "/mayor-office": "Кабинет мэра",
     "/simulation-settings": t.layout.simulationSettings,
   };
   const title = sectionTitles[Object.keys(sectionTitles).find(path => location.startsWith(path)) ?? ""] ?? "LifeSim";
+
+  useEffect(() => {
+    if (location === "/") return;
+    audio.setMusicMode("city");
+    if (location !== "/city") audio.setCityPhase(null);
+  }, [audio, location]);
 
   return (
     <div className="dark min-h-screen bg-background text-foreground overflow-hidden">
@@ -27,7 +37,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               {t.layout.city}
             </Link>
             <div className="flex items-center gap-2 min-w-0">
-              <Building2 className="w-4 h-4 text-primary shrink-0" />
+              {location.startsWith("/mayor-office") ? (
+                <KeyRound className="w-4 h-4 text-primary shrink-0" />
+              ) : (
+                <Building2 className="w-4 h-4 text-primary shrink-0" />
+              )}
               <span className="text-sm font-semibold truncate">{title}</span>
             </div>
           </div>

@@ -28,6 +28,8 @@ tags:
     description: Daily mayor decisions
   - name: districts
     description: District model operations
+  - name: mayor-office
+    description: Mayor private office operations
 paths:
   /healthz:
     get:
@@ -453,6 +455,167 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /mayor-office:
+    get:
+      operationId: getMayorOffice
+      tags: [mayor-office]
+      summary: Get mayor private office state
+      responses:
+        "200":
+          description: Mayor private office state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MayorOfficeState"
+
+  /mayor-office/skim-city-budget:
+    post:
+      operationId: skimMayorOfficeCityBudget
+      tags: [mayor-office]
+      summary: Skim city budget into the mayor offshore office
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MayorOfficeSkimCityBudgetRequest"
+      responses:
+        "200":
+          description: Updated mayor private office state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MayorOfficeState"
+        "400":
+          description: Invalid operation payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Operation cannot be applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: Operation mechanics are not implemented yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /mayor-office/skim-service-budget:
+    post:
+      operationId: skimMayorOfficeServiceBudget
+      tags: [mayor-office]
+      summary: Skim district service budget into the mayor offshore office
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MayorOfficeSkimServiceBudgetRequest"
+      responses:
+        "200":
+          description: Updated mayor private office state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MayorOfficeState"
+        "400":
+          description: Invalid operation payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Operation cannot be applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: Operation mechanics are not implemented yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /mayor-office/provide-service:
+    post:
+      operationId: provideMayorOfficeService
+      tags: [mayor-office]
+      summary: Provide a private mayor office service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MayorOfficeProvideServiceRequest"
+      responses:
+        "200":
+          description: Updated mayor private office state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MayorOfficeState"
+        "400":
+          description: Invalid operation payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Operation cannot be applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: Operation mechanics are not implemented yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /mayor-office/purchase:
+    post:
+      operationId: purchaseMayorOffice
+      tags: [mayor-office]
+      summary: Purchase a mayor private office upgrade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MayorOfficePurchaseRequest"
+      responses:
+        "200":
+          description: Updated mayor private office state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MayorOfficeState"
+        "400":
+          description: Invalid purchase payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Purchase cannot be applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: Purchase mechanics are not implemented yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /agents:
     get:
       operationId: listAgents
@@ -646,6 +809,207 @@ components:
       required:
         - status
 
+    MayorOfficeRiskLevel:
+      type: string
+      enum: [low, rising, danger]
+
+    MayorOfficeOperationType:
+      type: string
+      enum: [skim_city_budget, skim_service_budget, provide_service, purchase, system]
+
+    MayorOfficeActionLevel:
+      type: string
+      enum: [minimal, medium, maximum]
+
+    MayorOfficePurchaseType:
+      type: string
+      enum: [private_security, professional_security, villa, expensive_car, luxury]
+
+    MayorOfficeOperation:
+      type: object
+      properties:
+        id:
+          type: string
+        day:
+          type: integer
+        tick:
+          type: integer
+        type:
+          $ref: "#/components/schemas/MayorOfficeOperationType"
+        title:
+          type: string
+        amount:
+          type: number
+        offshoreDelta:
+          type: number
+        corruptionDelta:
+          type: number
+        riskDelta:
+          type: number
+      required:
+        - id
+        - day
+        - tick
+        - type
+        - title
+        - amount
+        - offshoreDelta
+        - corruptionDelta
+        - riskDelta
+
+    MayorOfficeDealLevels:
+      type: object
+      properties:
+        minimal:
+          type: number
+        medium:
+          type: number
+        maximum:
+          type: number
+      required:
+        - minimal
+        - medium
+        - maximum
+
+    MayorOfficeDeal:
+      type: object
+      properties:
+        id:
+          type: string
+        districtId:
+          type: string
+        title:
+          type: string
+        levels:
+          $ref: "#/components/schemas/MayorOfficeDealLevels"
+      required:
+        - id
+        - districtId
+        - title
+        - levels
+
+    MayorOfficePurchase:
+      type: object
+      properties:
+        item:
+          $ref: "#/components/schemas/MayorOfficePurchaseType"
+        title:
+          type: string
+        cost:
+          type: number
+        securityDelta:
+          type: integer
+        securityDurationDays:
+          type: integer
+        luxuryDelta:
+          type: integer
+        statusDelta:
+          type: integer
+        corruptionDelta:
+          type: number
+        povertyBacklash:
+          type: boolean
+      required:
+        - item
+        - title
+        - cost
+        - securityDelta
+        - securityDurationDays
+        - luxuryDelta
+        - statusDelta
+        - corruptionDelta
+        - povertyBacklash
+
+    MayorOfficeState:
+      type: object
+      properties:
+        offshoreBalance:
+          type: number
+        corruption:
+          type: number
+        securityLevel:
+          type: integer
+        securityExpiresTick:
+          type:
+            - integer
+            - "null"
+        securityTicksRemaining:
+          type: integer
+        luxuryLevel:
+          type: integer
+        statusLevel:
+          type: integer
+        riskLevel:
+          $ref: "#/components/schemas/MayorOfficeRiskLevel"
+        deals:
+          type: array
+          items:
+            $ref: "#/components/schemas/MayorOfficeDeal"
+        purchases:
+          type: array
+          items:
+            $ref: "#/components/schemas/MayorOfficePurchase"
+        operations:
+          type: array
+          items:
+            $ref: "#/components/schemas/MayorOfficeOperation"
+      required:
+        - offshoreBalance
+        - corruption
+        - securityLevel
+        - securityExpiresTick
+        - securityTicksRemaining
+        - luxuryLevel
+        - statusLevel
+        - riskLevel
+        - deals
+        - purchases
+        - operations
+
+    MayorOfficeSkimCityBudgetRequest:
+      type: object
+      properties:
+        level:
+          $ref: "#/components/schemas/MayorOfficeActionLevel"
+      required:
+        - level
+
+    MayorOfficeSkimServiceBudgetRequest:
+      type: object
+      properties:
+        districtId:
+          type: string
+        service:
+          $ref: "#/components/schemas/DistrictServiceType"
+        level:
+          $ref: "#/components/schemas/MayorOfficeActionLevel"
+      required:
+        - districtId
+        - service
+        - level
+
+    MayorOfficeProvideServiceRequest:
+      type: object
+      properties:
+        districtId:
+          type: string
+        dealId:
+          type: string
+        level:
+          $ref: "#/components/schemas/MayorOfficeActionLevel"
+      required:
+        - districtId
+        - dealId
+        - level
+
+    MayorOfficePurchaseRequest:
+      type: object
+      properties:
+        item:
+          $ref: "#/components/schemas/MayorOfficePurchaseType"
+      required:
+        - item
+
     DistrictMetrics:
       type: object
       properties:
@@ -803,6 +1167,20 @@ components:
         - inventory
         - total
 
+    DistrictServiceStaff:
+      type: object
+      properties:
+        utilityWorkers:
+          type: integer
+        policeOfficers:
+          type: integer
+        firefighters:
+          type: integer
+      required:
+        - utilityWorkers
+        - policeOfficers
+        - firefighters
+
     DistrictServiceState:
       type: object
       properties:
@@ -859,6 +1237,8 @@ components:
           type: string
         metrics:
           $ref: "#/components/schemas/DistrictMetrics"
+        baselineServices:
+          $ref: "#/components/schemas/DistrictServiceStaff"
         services:
           $ref: "#/components/schemas/DistrictServiceState"
         incidents:
@@ -873,6 +1253,7 @@ components:
         - mapY
         - boundaryPoints
         - metrics
+        - baselineServices
         - services
         - incidents
 
@@ -1389,6 +1770,10 @@ components:
           type: integer
         createdDay:
           type: integer
+        deadlineTick:
+          type: integer
+        ticksRemaining:
+          type: integer
         canHelp:
           type: boolean
       required:
@@ -1405,6 +1790,8 @@ components:
         - declineReputationPenalty
         - createdTick
         - createdDay
+        - deadlineTick
+        - ticksRemaining
         - canHelp
 
     ResidentRequestsState:
@@ -1734,6 +2121,8 @@ components:
           type: number
         grantThresholdPct:
           type: number
+        forecast:
+          $ref: "#/components/schemas/GovernmentForecast"
       required:
         - budget
         - totalTaxCollected
@@ -1747,6 +2136,51 @@ components:
         - grantsIssuedLastDay
         - unemploymentRatePct
         - grantThresholdPct
+        - forecast
+
+    GovernmentForecast:
+      type: object
+      properties:
+        expectedTaxIncome:
+          type: number
+        expectedPayrollTaxIncome:
+          type: number
+        expectedBusinessTaxIncome:
+          type: number
+        expectedPensionExpenses:
+          type: number
+        expectedPublicServiceExpenses:
+          type: number
+        expectedDistrictServiceExpenses:
+          type: number
+        expectedSupportExpenses:
+          type: number
+        expectedGrantExpenses:
+          type: number
+        requiredExpenses:
+          type: number
+        netDailyProjection:
+          type: number
+        projectedBudgetTomorrow:
+          type: number
+        freeManagementBudget:
+          type: number
+        operatingDays:
+          type: number
+      required:
+        - expectedTaxIncome
+        - expectedPayrollTaxIncome
+        - expectedBusinessTaxIncome
+        - expectedPensionExpenses
+        - expectedPublicServiceExpenses
+        - expectedDistrictServiceExpenses
+        - expectedSupportExpenses
+        - expectedGrantExpenses
+        - requiredExpenses
+        - netDailyProjection
+        - projectedBudgetTomorrow
+        - freeManagementBudget
+        - operatingDays
 
     SimConfig:
       type: object

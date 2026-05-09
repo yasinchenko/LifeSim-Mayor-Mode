@@ -34,6 +34,11 @@ import type {
   IssueDailyDecisionRequest,
   ListAgentsParams,
   ListDistrictIncidentsParams,
+  MayorOfficeProvideServiceRequest,
+  MayorOfficePurchaseRequest,
+  MayorOfficeSkimCityBudgetRequest,
+  MayorOfficeSkimServiceBudgetRequest,
+  MayorOfficeState,
   NewGameRequest,
   ProcessResidentRequestRequest,
   ResidentRequestsState,
@@ -1633,6 +1638,430 @@ export const useIgnoreDistrictIncident = <
   TContext
 > => {
   return useMutation(getIgnoreDistrictIncidentMutationOptions(options));
+};
+
+/**
+ * @summary Get mayor private office state
+ */
+export const getGetMayorOfficeUrl = () => {
+  return `/api/mayor-office`;
+};
+
+export const getMayorOffice = async (
+  options?: RequestInit,
+): Promise<MayorOfficeState> => {
+  return customFetch<MayorOfficeState>(getGetMayorOfficeUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMayorOfficeQueryKey = () => {
+  return [`/api/mayor-office`] as const;
+};
+
+export const getGetMayorOfficeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMayorOffice>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMayorOffice>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMayorOfficeQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMayorOffice>>> = ({
+    signal,
+  }) => getMayorOffice({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMayorOffice>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMayorOfficeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMayorOffice>>
+>;
+export type GetMayorOfficeQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get mayor private office state
+ */
+
+export function useGetMayorOffice<
+  TData = Awaited<ReturnType<typeof getMayorOffice>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMayorOffice>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMayorOfficeQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Skim city budget into the mayor offshore office
+ */
+export const getSkimMayorOfficeCityBudgetUrl = () => {
+  return `/api/mayor-office/skim-city-budget`;
+};
+
+export const skimMayorOfficeCityBudget = async (
+  mayorOfficeSkimCityBudgetRequest: MayorOfficeSkimCityBudgetRequest,
+  options?: RequestInit,
+): Promise<MayorOfficeState> => {
+  return customFetch<MayorOfficeState>(getSkimMayorOfficeCityBudgetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(mayorOfficeSkimCityBudgetRequest),
+  });
+};
+
+export const getSkimMayorOfficeCityBudgetMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof skimMayorOfficeCityBudget>>,
+    TError,
+    { data: BodyType<MayorOfficeSkimCityBudgetRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof skimMayorOfficeCityBudget>>,
+  TError,
+  { data: BodyType<MayorOfficeSkimCityBudgetRequest> },
+  TContext
+> => {
+  const mutationKey = ["skimMayorOfficeCityBudget"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof skimMayorOfficeCityBudget>>,
+    { data: BodyType<MayorOfficeSkimCityBudgetRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return skimMayorOfficeCityBudget(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SkimMayorOfficeCityBudgetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof skimMayorOfficeCityBudget>>
+>;
+export type SkimMayorOfficeCityBudgetMutationBody =
+  BodyType<MayorOfficeSkimCityBudgetRequest>;
+export type SkimMayorOfficeCityBudgetMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Skim city budget into the mayor offshore office
+ */
+export const useSkimMayorOfficeCityBudget = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof skimMayorOfficeCityBudget>>,
+    TError,
+    { data: BodyType<MayorOfficeSkimCityBudgetRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof skimMayorOfficeCityBudget>>,
+  TError,
+  { data: BodyType<MayorOfficeSkimCityBudgetRequest> },
+  TContext
+> => {
+  return useMutation(getSkimMayorOfficeCityBudgetMutationOptions(options));
+};
+
+/**
+ * @summary Skim district service budget into the mayor offshore office
+ */
+export const getSkimMayorOfficeServiceBudgetUrl = () => {
+  return `/api/mayor-office/skim-service-budget`;
+};
+
+export const skimMayorOfficeServiceBudget = async (
+  mayorOfficeSkimServiceBudgetRequest: MayorOfficeSkimServiceBudgetRequest,
+  options?: RequestInit,
+): Promise<MayorOfficeState> => {
+  return customFetch<MayorOfficeState>(getSkimMayorOfficeServiceBudgetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(mayorOfficeSkimServiceBudgetRequest),
+  });
+};
+
+export const getSkimMayorOfficeServiceBudgetMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof skimMayorOfficeServiceBudget>>,
+    TError,
+    { data: BodyType<MayorOfficeSkimServiceBudgetRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof skimMayorOfficeServiceBudget>>,
+  TError,
+  { data: BodyType<MayorOfficeSkimServiceBudgetRequest> },
+  TContext
+> => {
+  const mutationKey = ["skimMayorOfficeServiceBudget"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof skimMayorOfficeServiceBudget>>,
+    { data: BodyType<MayorOfficeSkimServiceBudgetRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return skimMayorOfficeServiceBudget(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SkimMayorOfficeServiceBudgetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof skimMayorOfficeServiceBudget>>
+>;
+export type SkimMayorOfficeServiceBudgetMutationBody =
+  BodyType<MayorOfficeSkimServiceBudgetRequest>;
+export type SkimMayorOfficeServiceBudgetMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Skim district service budget into the mayor offshore office
+ */
+export const useSkimMayorOfficeServiceBudget = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof skimMayorOfficeServiceBudget>>,
+    TError,
+    { data: BodyType<MayorOfficeSkimServiceBudgetRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof skimMayorOfficeServiceBudget>>,
+  TError,
+  { data: BodyType<MayorOfficeSkimServiceBudgetRequest> },
+  TContext
+> => {
+  return useMutation(getSkimMayorOfficeServiceBudgetMutationOptions(options));
+};
+
+/**
+ * @summary Provide a private mayor office service
+ */
+export const getProvideMayorOfficeServiceUrl = () => {
+  return `/api/mayor-office/provide-service`;
+};
+
+export const provideMayorOfficeService = async (
+  mayorOfficeProvideServiceRequest: MayorOfficeProvideServiceRequest,
+  options?: RequestInit,
+): Promise<MayorOfficeState> => {
+  return customFetch<MayorOfficeState>(getProvideMayorOfficeServiceUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(mayorOfficeProvideServiceRequest),
+  });
+};
+
+export const getProvideMayorOfficeServiceMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof provideMayorOfficeService>>,
+    TError,
+    { data: BodyType<MayorOfficeProvideServiceRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof provideMayorOfficeService>>,
+  TError,
+  { data: BodyType<MayorOfficeProvideServiceRequest> },
+  TContext
+> => {
+  const mutationKey = ["provideMayorOfficeService"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof provideMayorOfficeService>>,
+    { data: BodyType<MayorOfficeProvideServiceRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return provideMayorOfficeService(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ProvideMayorOfficeServiceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof provideMayorOfficeService>>
+>;
+export type ProvideMayorOfficeServiceMutationBody =
+  BodyType<MayorOfficeProvideServiceRequest>;
+export type ProvideMayorOfficeServiceMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Provide a private mayor office service
+ */
+export const useProvideMayorOfficeService = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof provideMayorOfficeService>>,
+    TError,
+    { data: BodyType<MayorOfficeProvideServiceRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof provideMayorOfficeService>>,
+  TError,
+  { data: BodyType<MayorOfficeProvideServiceRequest> },
+  TContext
+> => {
+  return useMutation(getProvideMayorOfficeServiceMutationOptions(options));
+};
+
+/**
+ * @summary Purchase a mayor private office upgrade
+ */
+export const getPurchaseMayorOfficeUrl = () => {
+  return `/api/mayor-office/purchase`;
+};
+
+export const purchaseMayorOffice = async (
+  mayorOfficePurchaseRequest: MayorOfficePurchaseRequest,
+  options?: RequestInit,
+): Promise<MayorOfficeState> => {
+  return customFetch<MayorOfficeState>(getPurchaseMayorOfficeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(mayorOfficePurchaseRequest),
+  });
+};
+
+export const getPurchaseMayorOfficeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof purchaseMayorOffice>>,
+    TError,
+    { data: BodyType<MayorOfficePurchaseRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof purchaseMayorOffice>>,
+  TError,
+  { data: BodyType<MayorOfficePurchaseRequest> },
+  TContext
+> => {
+  const mutationKey = ["purchaseMayorOffice"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof purchaseMayorOffice>>,
+    { data: BodyType<MayorOfficePurchaseRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return purchaseMayorOffice(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PurchaseMayorOfficeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof purchaseMayorOffice>>
+>;
+export type PurchaseMayorOfficeMutationBody =
+  BodyType<MayorOfficePurchaseRequest>;
+export type PurchaseMayorOfficeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Purchase a mayor private office upgrade
+ */
+export const usePurchaseMayorOffice = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof purchaseMayorOffice>>,
+    TError,
+    { data: BodyType<MayorOfficePurchaseRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof purchaseMayorOffice>>,
+  TError,
+  { data: BodyType<MayorOfficePurchaseRequest> },
+  TContext
+> => {
+  return useMutation(getPurchaseMayorOfficeMutationOptions(options));
 };
 
 /**

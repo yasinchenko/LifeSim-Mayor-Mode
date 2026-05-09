@@ -5,6 +5,7 @@
  * Life Simulation API
  * OpenAPI spec version: 0.1.0
  */
+import type { GovernmentForecast } from "./governmentForecast";
 
 export interface GovernmentState {
   budget: number;
@@ -20,4 +21,5 @@ export interface GovernmentState {
   grantsIssuedLastDay: number;
   unemploymentRatePct: number;
   grantThresholdPct: number;
+  forecast: GovernmentForecast;
 }

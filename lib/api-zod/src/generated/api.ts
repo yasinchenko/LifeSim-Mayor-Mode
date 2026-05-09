@@ -909,6 +909,8 @@ export const GetResidentRequestsResponse = zod.object({
       declineReputationPenalty: zod.number(),
       createdTick: zod.number(),
       createdDay: zod.number(),
+      deadlineTick: zod.number(),
+      ticksRemaining: zod.number(),
       canHelp: zod.boolean(),
     }),
   ),
@@ -950,6 +952,8 @@ export const ProcessResidentRequestResponse = zod.object({
       declineReputationPenalty: zod.number(),
       createdTick: zod.number(),
       createdDay: zod.number(),
+      deadlineTick: zod.number(),
+      ticksRemaining: zod.number(),
       canHelp: zod.boolean(),
     }),
   ),
@@ -977,6 +981,11 @@ export const ListDistrictsResponseItem = zod.object({
       .describe("Business trust in the district, 0-100"),
     poverty: zod.number().describe("Poverty level, 0-100"),
     infrastructure: zod.number().describe("Infrastructure condition, 0-100"),
+  }),
+  baselineServices: zod.object({
+    utilityWorkers: zod.number(),
+    policeOfficers: zod.number(),
+    firefighters: zod.number(),
   }),
   services: zod.object({
     utilityWorkers: zod.number(),
@@ -1047,6 +1056,11 @@ export const GetDistrictResponse = zod.object({
       .describe("Business trust in the district, 0-100"),
     poverty: zod.number().describe("Poverty level, 0-100"),
     infrastructure: zod.number().describe("Infrastructure condition, 0-100"),
+  }),
+  baselineServices: zod.object({
+    utilityWorkers: zod.number(),
+    policeOfficers: zod.number(),
+    firefighters: zod.number(),
   }),
   services: zod.object({
     utilityWorkers: zod.number(),
@@ -1129,6 +1143,11 @@ export const HireDistrictStaffResponse = zod.object({
     poverty: zod.number().describe("Poverty level, 0-100"),
     infrastructure: zod.number().describe("Infrastructure condition, 0-100"),
   }),
+  baselineServices: zod.object({
+    utilityWorkers: zod.number(),
+    policeOfficers: zod.number(),
+    firefighters: zod.number(),
+  }),
   services: zod.object({
     utilityWorkers: zod.number(),
     policeOfficers: zod.number(),
@@ -1207,6 +1226,11 @@ export const InvestDistrictResponse = zod.object({
       .describe("Business trust in the district, 0-100"),
     poverty: zod.number().describe("Poverty level, 0-100"),
     infrastructure: zod.number().describe("Infrastructure condition, 0-100"),
+  }),
+  baselineServices: zod.object({
+    utilityWorkers: zod.number(),
+    policeOfficers: zod.number(),
+    firefighters: zod.number(),
   }),
   services: zod.object({
     utilityWorkers: zod.number(),
@@ -1365,6 +1389,352 @@ export const IgnoreDistrictIncidentResponse = zod.object({
   partial: zod
     .boolean()
     .describe("True when service staff was below the district baseline"),
+});
+
+/**
+ * @summary Get mayor private office state
+ */
+export const GetMayorOfficeResponse = zod.object({
+  offshoreBalance: zod.number(),
+  corruption: zod.number(),
+  securityLevel: zod.number(),
+  securityExpiresTick: zod.number().nullable(),
+  securityTicksRemaining: zod.number(),
+  luxuryLevel: zod.number(),
+  statusLevel: zod.number(),
+  riskLevel: zod.enum(["low", "rising", "danger"]),
+  deals: zod.array(
+    zod.object({
+      id: zod.string(),
+      districtId: zod.string(),
+      title: zod.string(),
+      levels: zod.object({
+        minimal: zod.number(),
+        medium: zod.number(),
+        maximum: zod.number(),
+      }),
+    }),
+  ),
+  purchases: zod.array(
+    zod.object({
+      item: zod.enum([
+        "private_security",
+        "professional_security",
+        "villa",
+        "expensive_car",
+        "luxury",
+      ]),
+      title: zod.string(),
+      cost: zod.number(),
+      securityDelta: zod.number(),
+      securityDurationDays: zod.number(),
+      luxuryDelta: zod.number(),
+      statusDelta: zod.number(),
+      corruptionDelta: zod.number(),
+      povertyBacklash: zod.boolean(),
+    }),
+  ),
+  operations: zod.array(
+    zod.object({
+      id: zod.string(),
+      day: zod.number(),
+      tick: zod.number(),
+      type: zod.enum([
+        "skim_city_budget",
+        "skim_service_budget",
+        "provide_service",
+        "purchase",
+        "system",
+      ]),
+      title: zod.string(),
+      amount: zod.number(),
+      offshoreDelta: zod.number(),
+      corruptionDelta: zod.number(),
+      riskDelta: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Skim city budget into the mayor offshore office
+ */
+export const SkimMayorOfficeCityBudgetBody = zod.object({
+  level: zod.enum(["minimal", "medium", "maximum"]),
+});
+
+export const SkimMayorOfficeCityBudgetResponse = zod.object({
+  offshoreBalance: zod.number(),
+  corruption: zod.number(),
+  securityLevel: zod.number(),
+  securityExpiresTick: zod.number().nullable(),
+  securityTicksRemaining: zod.number(),
+  luxuryLevel: zod.number(),
+  statusLevel: zod.number(),
+  riskLevel: zod.enum(["low", "rising", "danger"]),
+  deals: zod.array(
+    zod.object({
+      id: zod.string(),
+      districtId: zod.string(),
+      title: zod.string(),
+      levels: zod.object({
+        minimal: zod.number(),
+        medium: zod.number(),
+        maximum: zod.number(),
+      }),
+    }),
+  ),
+  purchases: zod.array(
+    zod.object({
+      item: zod.enum([
+        "private_security",
+        "professional_security",
+        "villa",
+        "expensive_car",
+        "luxury",
+      ]),
+      title: zod.string(),
+      cost: zod.number(),
+      securityDelta: zod.number(),
+      securityDurationDays: zod.number(),
+      luxuryDelta: zod.number(),
+      statusDelta: zod.number(),
+      corruptionDelta: zod.number(),
+      povertyBacklash: zod.boolean(),
+    }),
+  ),
+  operations: zod.array(
+    zod.object({
+      id: zod.string(),
+      day: zod.number(),
+      tick: zod.number(),
+      type: zod.enum([
+        "skim_city_budget",
+        "skim_service_budget",
+        "provide_service",
+        "purchase",
+        "system",
+      ]),
+      title: zod.string(),
+      amount: zod.number(),
+      offshoreDelta: zod.number(),
+      corruptionDelta: zod.number(),
+      riskDelta: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Skim district service budget into the mayor offshore office
+ */
+export const SkimMayorOfficeServiceBudgetBody = zod.object({
+  districtId: zod.string(),
+  service: zod.enum(["utility", "police", "fire"]),
+  level: zod.enum(["minimal", "medium", "maximum"]),
+});
+
+export const SkimMayorOfficeServiceBudgetResponse = zod.object({
+  offshoreBalance: zod.number(),
+  corruption: zod.number(),
+  securityLevel: zod.number(),
+  securityExpiresTick: zod.number().nullable(),
+  securityTicksRemaining: zod.number(),
+  luxuryLevel: zod.number(),
+  statusLevel: zod.number(),
+  riskLevel: zod.enum(["low", "rising", "danger"]),
+  deals: zod.array(
+    zod.object({
+      id: zod.string(),
+      districtId: zod.string(),
+      title: zod.string(),
+      levels: zod.object({
+        minimal: zod.number(),
+        medium: zod.number(),
+        maximum: zod.number(),
+      }),
+    }),
+  ),
+  purchases: zod.array(
+    zod.object({
+      item: zod.enum([
+        "private_security",
+        "professional_security",
+        "villa",
+        "expensive_car",
+        "luxury",
+      ]),
+      title: zod.string(),
+      cost: zod.number(),
+      securityDelta: zod.number(),
+      securityDurationDays: zod.number(),
+      luxuryDelta: zod.number(),
+      statusDelta: zod.number(),
+      corruptionDelta: zod.number(),
+      povertyBacklash: zod.boolean(),
+    }),
+  ),
+  operations: zod.array(
+    zod.object({
+      id: zod.string(),
+      day: zod.number(),
+      tick: zod.number(),
+      type: zod.enum([
+        "skim_city_budget",
+        "skim_service_budget",
+        "provide_service",
+        "purchase",
+        "system",
+      ]),
+      title: zod.string(),
+      amount: zod.number(),
+      offshoreDelta: zod.number(),
+      corruptionDelta: zod.number(),
+      riskDelta: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Provide a private mayor office service
+ */
+export const ProvideMayorOfficeServiceBody = zod.object({
+  districtId: zod.string(),
+  dealId: zod.string(),
+  level: zod.enum(["minimal", "medium", "maximum"]),
+});
+
+export const ProvideMayorOfficeServiceResponse = zod.object({
+  offshoreBalance: zod.number(),
+  corruption: zod.number(),
+  securityLevel: zod.number(),
+  securityExpiresTick: zod.number().nullable(),
+  securityTicksRemaining: zod.number(),
+  luxuryLevel: zod.number(),
+  statusLevel: zod.number(),
+  riskLevel: zod.enum(["low", "rising", "danger"]),
+  deals: zod.array(
+    zod.object({
+      id: zod.string(),
+      districtId: zod.string(),
+      title: zod.string(),
+      levels: zod.object({
+        minimal: zod.number(),
+        medium: zod.number(),
+        maximum: zod.number(),
+      }),
+    }),
+  ),
+  purchases: zod.array(
+    zod.object({
+      item: zod.enum([
+        "private_security",
+        "professional_security",
+        "villa",
+        "expensive_car",
+        "luxury",
+      ]),
+      title: zod.string(),
+      cost: zod.number(),
+      securityDelta: zod.number(),
+      securityDurationDays: zod.number(),
+      luxuryDelta: zod.number(),
+      statusDelta: zod.number(),
+      corruptionDelta: zod.number(),
+      povertyBacklash: zod.boolean(),
+    }),
+  ),
+  operations: zod.array(
+    zod.object({
+      id: zod.string(),
+      day: zod.number(),
+      tick: zod.number(),
+      type: zod.enum([
+        "skim_city_budget",
+        "skim_service_budget",
+        "provide_service",
+        "purchase",
+        "system",
+      ]),
+      title: zod.string(),
+      amount: zod.number(),
+      offshoreDelta: zod.number(),
+      corruptionDelta: zod.number(),
+      riskDelta: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Purchase a mayor private office upgrade
+ */
+export const PurchaseMayorOfficeBody = zod.object({
+  item: zod.enum([
+    "private_security",
+    "professional_security",
+    "villa",
+    "expensive_car",
+    "luxury",
+  ]),
+});
+
+export const PurchaseMayorOfficeResponse = zod.object({
+  offshoreBalance: zod.number(),
+  corruption: zod.number(),
+  securityLevel: zod.number(),
+  securityExpiresTick: zod.number().nullable(),
+  securityTicksRemaining: zod.number(),
+  luxuryLevel: zod.number(),
+  statusLevel: zod.number(),
+  riskLevel: zod.enum(["low", "rising", "danger"]),
+  deals: zod.array(
+    zod.object({
+      id: zod.string(),
+      districtId: zod.string(),
+      title: zod.string(),
+      levels: zod.object({
+        minimal: zod.number(),
+        medium: zod.number(),
+        maximum: zod.number(),
+      }),
+    }),
+  ),
+  purchases: zod.array(
+    zod.object({
+      item: zod.enum([
+        "private_security",
+        "professional_security",
+        "villa",
+        "expensive_car",
+        "luxury",
+      ]),
+      title: zod.string(),
+      cost: zod.number(),
+      securityDelta: zod.number(),
+      securityDurationDays: zod.number(),
+      luxuryDelta: zod.number(),
+      statusDelta: zod.number(),
+      corruptionDelta: zod.number(),
+      povertyBacklash: zod.boolean(),
+    }),
+  ),
+  operations: zod.array(
+    zod.object({
+      id: zod.string(),
+      day: zod.number(),
+      tick: zod.number(),
+      type: zod.enum([
+        "skim_city_budget",
+        "skim_service_budget",
+        "provide_service",
+        "purchase",
+        "system",
+      ]),
+      title: zod.string(),
+      amount: zod.number(),
+      offshoreDelta: zod.number(),
+      corruptionDelta: zod.number(),
+      riskDelta: zod.number(),
+    }),
+  ),
 });
 
 /**
@@ -1538,6 +1908,21 @@ export const GetGovernmentResponse = zod.object({
   grantsIssuedLastDay: zod.number(),
   unemploymentRatePct: zod.number(),
   grantThresholdPct: zod.number(),
+  forecast: zod.object({
+    expectedTaxIncome: zod.number(),
+    expectedPayrollTaxIncome: zod.number(),
+    expectedBusinessTaxIncome: zod.number(),
+    expectedPensionExpenses: zod.number(),
+    expectedPublicServiceExpenses: zod.number(),
+    expectedDistrictServiceExpenses: zod.number(),
+    expectedSupportExpenses: zod.number(),
+    expectedGrantExpenses: zod.number(),
+    requiredExpenses: zod.number(),
+    netDailyProjection: zod.number(),
+    projectedBudgetTomorrow: zod.number(),
+    freeManagementBudget: zod.number(),
+    operatingDays: zod.number(),
+  }),
 });
 
 /**

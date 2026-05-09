@@ -88,6 +88,20 @@ interface PopulationGroupsResponse {
   groups: PopulationGroup[];
 }
 
+interface PopulationOverviewData {
+  total: number | null;
+  avgMood: number | null;
+  avgWealth: number | null;
+  unemployment: number | null;
+  employed: number | null;
+  avgAge: number | null;
+  needsAverage: number | null;
+  criticalNeeds: number;
+  lowNeeds: number;
+  worstNeed: { meta: { key: keyof NeedsStats; label: string; color: string }; stat: NeedStat } | null;
+  largestGroup: PopulationGroup | null;
+}
+
 interface NeedStat {
   avg: number;
   criticalPct: number;
@@ -354,6 +368,28 @@ export default function AgentsPage() {
 
   const statConfig = SORT_STAT_CONFIG[sortBy];
   const hoveredHistory = hoveredAgentId != null ? agentHistory.get(hoveredAgentId) : undefined;
+  const weightedGroupAverage = (key: "avgMood" | "avgMoney" | "avgAge") => {
+    if (!groupData || groupData.total <= 0) return null;
+    return groupData.groups.reduce((sum, group) => sum + group[key] * group.count, 0) / groupData.total;
+  };
+  const employedPct = groupData && groupData.total > 0
+    ? (groupData.groups.reduce((sum, group) => sum + group.employedCount, 0) / groupData.total) * 100
+    : null;
+  const sortedNeedMeta = needsStats ? [...NEED_META].sort((a, b) => needsStats[a.key].avg - needsStats[b.key].avg) : [];
+  const worstNeed = needsStats && sortedNeedMeta[0] ? { meta: sortedNeedMeta[0], stat: needsStats[sortedNeedMeta[0].key] } : null;
+  const overview: PopulationOverviewData = {
+    total: simState?.population ?? groupData?.total ?? data?.total ?? null,
+    avgMood: simState?.avgMood ?? weightedGroupAverage("avgMood"),
+    avgWealth: simState?.avgWealth ?? weightedGroupAverage("avgMoney"),
+    unemployment: simState?.unemploymentRate ?? (employedPct == null ? null : 100 - employedPct),
+    employed: employedPct,
+    avgAge: weightedGroupAverage("avgAge"),
+    needsAverage: needsStats ? NEED_META.reduce((sum, meta) => sum + needsStats[meta.key].avg, 0) / NEED_META.length : null,
+    criticalNeeds: needsStats ? NEED_META.filter(meta => needsStats[meta.key].avg < 25).length : 0,
+    lowNeeds: needsStats ? NEED_META.filter(meta => needsStats[meta.key].avg >= 25 && needsStats[meta.key].avg < 50).length : 0,
+    worstNeed,
+    largestGroup: sortedGroups.length > 0 ? [...sortedGroups].sort((a, b) => b.count - a.count)[0] : null,
+  };
 
   return (
     <div className="p-6 space-y-4">
@@ -398,7 +434,7 @@ export default function AgentsPage() {
             </div>
           )}
 
-          {needsStats && <NeedsPanel stats={needsStats} />}
+          <PopulationOverview overview={overview} />
 
           {groupData && (
             <>
@@ -519,6 +555,8 @@ export default function AgentsPage() {
               </div>
             </>
           )}
+
+          {needsStats && <NeedsPanel stats={needsStats} />}
       </div>
 
       {hoveredAgentId != null && tooltipPos && (
@@ -551,6 +589,124 @@ export default function AgentsPage() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function formatNumber(value: number | null, digits = 0) {
+  if (value == null || Number.isNaN(value)) return "—";
+  return value.toLocaleString("ru-RU", {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits,
+  });
+}
+
+function metricTone(value: number | null, goodAt = 70) {
+  if (value == null) return "hsl(232,67%,79%)";
+  if (value >= goodAt) return "hsl(156,52%,70%)";
+  if (value >= goodAt * 0.65) return "hsl(38,78%,74%)";
+  return "hsl(351,72%,75%)";
+}
+
+function PopulationOverview({ overview }: { overview: PopulationOverviewData }) {
+  const unemploymentTone = overview.unemployment == null
+    ? "hsl(232,67%,79%)"
+    : overview.unemployment <= 8
+      ? "hsl(156,52%,70%)"
+      : overview.unemployment <= 18
+        ? "hsl(38,78%,74%)"
+        : "hsl(351,72%,75%)";
+
+  return (
+    <section className="grid gap-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <OverviewMetric
+          label="Население"
+          value={overview.total == null ? "—" : overview.total.toLocaleString("ru-RU")}
+          detail={overview.largestGroup ? `крупная группа: ${overview.largestGroup.label}` : "всего жителей"}
+          color="hsl(156,52%,70%)"
+        />
+        <OverviewMetric
+          label="Настроение"
+          value={formatNumber(overview.avgMood, 1)}
+          detail="средняя оценка жителей"
+          color={metricTone(overview.avgMood)}
+        />
+        <OverviewMetric
+          label="Богатство"
+          value={formatNumber(overview.avgWealth)}
+          detail="средний личный баланс"
+          color="hsl(232,67%,79%)"
+        />
+        <OverviewMetric
+          label="Безработица"
+          value={overview.unemployment == null ? "—" : `${formatNumber(overview.unemployment, 1)}%`}
+          detail={overview.employed == null ? "занятость неизвестна" : `занято ${formatNumber(overview.employed, 1)}%`}
+          color={unemploymentTone}
+        />
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-[1.1fr_1fr_1fr]">
+        <div className="rounded border border-card-border bg-card p-4">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Сводка по качеству жизни</p>
+          <div className="mt-3 grid gap-2 text-xs">
+            <InsightLine
+              label="Потребности"
+              value={overview.needsAverage == null ? "—" : formatNumber(overview.needsAverage, 1)}
+              detail={overview.criticalNeeds > 0 ? `${overview.criticalNeeds} критично` : overview.lowNeeds > 0 ? `${overview.lowNeeds} низко` : "без острых провалов"}
+              color={metricTone(overview.needsAverage)}
+            />
+            <InsightLine
+              label="Самая слабая зона"
+              value={overview.worstNeed?.meta.label ?? "—"}
+              detail={overview.worstNeed ? `${overview.worstNeed.stat.avg} / 100` : "нет данных"}
+              color={overview.worstNeed ? needBarColor(overview.worstNeed.stat.avg) : "hsl(232,67%,79%)"}
+            />
+          </div>
+        </div>
+
+        <div className="rounded border border-card-border bg-card p-4">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Социальная структура</p>
+          <p className="mt-2 text-sm font-semibold text-foreground">
+            {overview.largestGroup?.label ?? "—"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {overview.largestGroup
+              ? `${overview.largestGroup.count.toLocaleString("ru-RU")} жителей, ${overview.largestGroup.pct}% населения`
+              : "группы ещё загружаются"}
+          </p>
+        </div>
+
+        <div className="rounded border border-card-border bg-card p-4">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Возраст</p>
+          <p className="mt-2 text-2xl font-semibold tabular-nums text-[hsl(38,78%,74%)]">
+            {formatNumber(overview.avgAge)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">средний возраст жителей</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function OverviewMetric({ label, value, detail, color }: { label: string; value: string; detail: string; color: string }) {
+  return (
+    <div className="rounded border border-card-border bg-card p-4">
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums" style={{ color }}>{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+    </div>
+  );
+}
+
+function InsightLine({ label, value, detail, color }: { label: string; value: string; detail: string; color: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded border border-border/60 bg-muted/10 px-3 py-2">
+      <div className="min-w-0">
+        <p className="text-[11px] text-muted-foreground">{label}</p>
+        <p className="truncate text-sm font-semibold text-foreground">{value}</p>
+      </div>
+      <span className="shrink-0 text-right text-[11px] font-semibold" style={{ color }}>{detail}</span>
     </div>
   );
 }
