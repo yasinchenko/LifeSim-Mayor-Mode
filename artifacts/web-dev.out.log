@@ -8634,3 +8634,1093 @@ Starting Vite web preview at http://127.0.0.1:4173
     [35mneedScore[39m: 0
     [35mmarketRatio[39m: 0.97
     [35mgovBudgetAfter[39m: 59521
+[23:05:02.153] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 10
+    [35mpopulation[39m: 647
+[23:05:02.157] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 7
+    [35mpopulation[39m: 654
+[23:05:02.182] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 9
+    [35mpopulation[39m: 645
+    [35mwellbeingScore[39m: 0.81
+[23:05:02.186] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 653
+    [35mwellbeingScore[39m: 0.81
+[23:05:02.188] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 13
+    [35mbizName[39m: "Продуктовый №3"
+    [35mbalanceAfter[39m: 581
+    [35mbailoutAmount[39m: 800
+[23:05:02.188] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 314
+    [35mbizName[39m: "Закусочная     №51"
+    [35mbalanceAfter[39m: 585
+    [35mbailoutAmount[39m: 800
+[23:05:02.188] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 344
+    [35mbizName[39m: "Закусочная     №59"
+    [35mbalanceAfter[39m: 481
+    [35mbailoutAmount[39m: 800
+[23:05:02.188] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 345
+    [35mbizName[39m: "Закусочная     №60"
+    [35mbalanceAfter[39m: 629
+    [35mbailoutAmount[39m: 800
+[23:05:02.190] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 1626
+    [35mbizName[39m: "Закусочная     №61"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 39
+    [35magentMoney[39m: 3808
+[23:05:02.191] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2155
+    [35mbizName[39m: "Продуктовый     №62"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 39
+    [35mneedScore[39m: 49
+    [35mmarketRatio[39m: 0.94
+    [35mgovBudgetAfter[39m: 83965
+[23:05:02.192] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2154
+    [35mbizName[39m: "Овощная ферма     №69"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.96
+    [35mgovBudgetAfter[39m: 82165
+[23:05:02.193] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2153
+    [35mbizName[39m: "Химический завод №59"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.96
+    [35mgovBudgetAfter[39m: 79965
+[23:05:02.384] [32mINFO[39m (4872): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 807,
+      "method": "GET",
+      "url": "/api/stats/summary"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[23:05:02.390] [32mINFO[39m (4872): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 808,
+      "method": "GET",
+      "url": "/api/simulation/state"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 1
+[23:05:12.751] [32mINFO[39m (4872): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 809,
+      "method": "GET",
+      "url": "/api/businesses"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 6
+[23:05:12.752] [32mINFO[39m (4872): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 810,
+      "method": "GET",
+      "url": "/api/stats/population-breakdown"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 1
+[23:05:12.775] [32mINFO[39m (4872): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 811,
+      "method": "GET",
+      "url": "/api/stats/population-groups"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 2
+[23:05:12.807] [32mINFO[39m (4872): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 812,
+      "method": "GET",
+      "url": "/api/stats/population-groups"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 1
+[23:05:19.814] [32mINFO[39m (4872): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 813,
+      "method": "GET",
+      "url": "/api/stats/population-groups"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 1
+[23:07:34.664] [32mINFO[39m (4872): [36mBusiness going bankrupt — closing[39m
+    [35mbizId[39m: 276
+    [35mbizName[39m: "Магазин  №43"
+    [35mbalance[39m: -311
+    [35mticksUnprofitable[39m: 40
+[23:09:06.037] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 12
+    [35mpopulation[39m: 641
+[23:09:06.041] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 7
+    [35mpopulation[39m: 648
+[23:09:06.060] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 11
+    [35mpopulation[39m: 637
+    [35mwellbeingScore[39m: 0.8
+[23:09:06.063] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 645
+    [35mwellbeingScore[39m: 0.8
+[23:09:06.064] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 14
+    [35mbizName[39m: "Кафе №4"
+    [35mbalanceAfter[39m: 641
+    [35mbailoutAmount[39m: 800
+[23:09:06.064] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 26
+    [35mbizName[39m: "Ресторан №16"
+    [35mbalanceAfter[39m: 564
+    [35mbailoutAmount[39m: 800
+[23:09:06.064] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 28
+    [35mbizName[39m: "Столовая №18"
+    [35mbalanceAfter[39m: 633
+    [35mbailoutAmount[39m: 800
+[23:09:06.064] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 56
+    [35mbizName[39m: "Прачечная №15"
+    [35mbalanceAfter[39m: 632
+    [35mbailoutAmount[39m: 800
+[23:09:06.064] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 152
+    [35mbizName[39m: "Кафе     №65"
+    [35mbalanceAfter[39m: 629
+    [35mbailoutAmount[39m: 800
+[23:09:06.066] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 2054
+    [35mbizName[39m: "Овощная ферма     №70"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35magentMoney[39m: 3280
+[23:09:06.066] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2158
+    [35mbizName[39m: "Химический завод №60"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.97
+    [35mgovBudgetAfter[39m: 95523
+[23:09:06.067] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2167
+    [35mbizName[39m: "Овощная ферма     №71"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.96
+    [35mgovBudgetAfter[39m: 93723
+[23:09:06.068] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2171
+    [35mbizName[39m: "Птицефабрика     №72"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.96
+    [35mgovBudgetAfter[39m: 91923
+[23:10:37.393] [32mINFO[39m (4872): [36mBusiness going bankrupt — closing[39m
+    [35mbizId[39m: 327
+    [35mbizName[39m: "Аптека  №43"
+    [35mbalance[39m: -345
+    [35mticksUnprofitable[39m: 58
+[23:11:48.351] [32mINFO[39m (4872): [36mBusiness going bankrupt — closing[39m
+    [35mbizId[39m: 107
+    [35mbizName[39m: "Закусочная     №40"
+    [35mbalance[39m: -513
+    [35mticksUnprofitable[39m: 41
+[23:12:08.602] [32mINFO[39m (4872): [36mBusiness going bankrupt — closing[39m
+    [35mbizId[39m: 258
+    [35mbizName[39m: "Аптека  №42"
+    [35mbalance[39m: -428
+    [35mticksUnprofitable[39m: 43
+[23:13:09.429] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 639
+[23:13:09.431] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 645
+[23:13:09.440] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 10
+    [35mpopulation[39m: 635
+    [35mwellbeingScore[39m: 0.8
+[23:13:09.442] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 643
+    [35mwellbeingScore[39m: 0.8
+[23:13:09.443] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 168
+    [35mbizName[39m: "Ателье  №25"
+    [35mbalanceAfter[39m: 624
+    [35mbailoutAmount[39m: 800
+[23:13:09.443] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 208
+    [35mbizName[39m: "Ресторан     №54"
+    [35mbalanceAfter[39m: 429
+    [35mbailoutAmount[39m: 800
+[23:13:09.443] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 234
+    [35mbizName[39m: "Супермаркет     №49"
+    [35mbalanceAfter[39m: 616
+    [35mbailoutAmount[39m: 800
+[23:13:09.443] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 253
+    [35mbizName[39m: "Ателье  №37"
+    [35mbalanceAfter[39m: 630
+    [35mbailoutAmount[39m: 800
+[23:13:09.443] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 303
+    [35mbizName[39m: "Пекарня     №44"
+    [35mbalanceAfter[39m: 144
+    [35mbailoutAmount[39m: 800
+[23:13:09.445] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2184
+    [35mbizName[39m: "Пекарня     №62"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 33
+    [35mneedScore[39m: 53
+    [35mmarketRatio[39m: 0.58
+    [35mgovBudgetAfter[39m: 103564
+[23:13:09.445] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2185
+    [35mbizName[39m: "Продуктовый     №63"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 53
+    [35mmarketRatio[39m: 0.54
+    [35mgovBudgetAfter[39m: 101564
+[23:13:09.446] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2182
+    [35mbizName[39m: "Производственный цех №61"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.96
+    [35mgovBudgetAfter[39m: 99364
+[23:16:32.306] [32mINFO[39m (4872): [36mBusiness going bankrupt — closing[39m
+    [35mbizId[39m: 345
+    [35mbizName[39m: "Закусочная     №60"
+    [35mbalance[39m: -426
+    [35mticksUnprofitable[39m: 45
+[23:17:12.908] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 4
+    [35mpopulation[39m: 639
+[23:17:12.910] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 645
+[23:17:12.920] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 11
+    [35mpopulation[39m: 634
+    [35mwellbeingScore[39m: 0.8
+[23:17:12.922] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 642
+    [35mwellbeingScore[39m: 0.8
+[23:17:12.923] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 236
+    [35mbizName[39m: "Парикмахерская  №32"
+    [35mbalanceAfter[39m: 567
+    [35mbailoutAmount[39m: 800
+[23:17:12.923] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 281
+    [35mbizName[39m: "Супермаркет     №46"
+    [35mbalanceAfter[39m: 328
+    [35mbailoutAmount[39m: 800
+[23:17:12.923] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 357
+    [35mbizName[39m: "Ателье  №49"
+    [35mbalanceAfter[39m: 368
+    [35mbailoutAmount[39m: 800
+[23:17:12.924] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 1954
+    [35mbizName[39m: "Закусочная     №63"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 33
+    [35magentMoney[39m: 4034
+[23:17:12.925] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2199
+    [35mbizName[39m: "Кафе     №64"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 33
+    [35mneedScore[39m: 52
+    [35mmarketRatio[39m: 0.63
+    [35mgovBudgetAfter[39m: 110773
+[23:17:12.926] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 1862
+    [35mbizName[39m: "Агроферма     №73"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.97
+    [35mgovBudgetAfter[39m: 108973
+[23:17:12.926] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2124
+    [35mbizName[39m: "Цех упаковки №62"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.97
+    [35mgovBudgetAfter[39m: 106773
+[23:17:43.511] [32mINFO[39m (4872): [36mBusiness going bankrupt — closing[39m
+    [35mbizId[39m: 285
+    [35mbizName[39m: "Сервисный центр  №41"
+    [35mbalance[39m: -613
+    [35mticksUnprofitable[39m: 52
+[23:21:16.414] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 5
+    [35mpopulation[39m: 637
+[23:21:16.418] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 643
+[23:21:16.434] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 10
+    [35mpopulation[39m: 633
+    [35mwellbeingScore[39m: 0.8
+[23:21:16.436] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 641
+    [35mwellbeingScore[39m: 0.8
+[23:21:16.437] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 278
+    [35mbizName[39m: "Магазин  №45"
+    [35mbalanceAfter[39m: 614
+    [35mbailoutAmount[39m: 800
+[23:21:16.437] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 311
+    [35mbizName[39m: "Столовая     №50"
+    [35mbalanceAfter[39m: 589
+    [35mbailoutAmount[39m: 800
+[23:21:16.437] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 315
+    [35mbizName[39m: "Продуктовый     №52"
+    [35mbalanceAfter[39m: 614
+    [35mbailoutAmount[39m: 800
+[23:21:16.437] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 333
+    [35mbizName[39m: "Магазин  №46"
+    [35mbalanceAfter[39m: 594
+    [35mbailoutAmount[39m: 800
+[23:21:16.439] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 1826
+    [35mbizName[39m: "Тепличный комбинат     №74"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35magentMoney[39m: 9186
+[23:21:16.440] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 2051
+    [35mbizName[39m: "Птицефабрика     №75"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35magentMoney[39m: 3748
+[23:21:16.441] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2202
+    [35mbizName[39m: "Агроферма     №76"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.97
+    [35mgovBudgetAfter[39m: 108651
+[23:21:16.442] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2206
+    [35mbizName[39m: "Завод комплектующих №63"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.96
+    [35mgovBudgetAfter[39m: 106451
+[23:21:16.443] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2209
+    [35mbizName[39m: "Агроферма     №77"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.95
+    [35mgovBudgetAfter[39m: 104651
+[23:22:39.293] [32mINFO[39m (4872): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 814,
+      "method": "GET",
+      "url": "/api/simulation/state"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 1
+[23:22:39.297] [32mINFO[39m (4872): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 815,
+      "method": "GET",
+      "url": "/api/stats/history"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[23:22:39.299] [32mINFO[39m (4872): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 816,
+      "method": "GET",
+      "url": "/api/stats/summary"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 2
+[23:22:39.306] [32mINFO[39m (4872): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 817,
+      "method": "GET",
+      "url": "/api/decisions/day"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 6
+[23:22:39.308] [32mINFO[39m (4872): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 818,
+      "method": "GET",
+      "url": "/api/decisions/requests"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 1
+[23:25:19.904] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 7
+    [35mpopulation[39m: 634
+[23:25:19.906] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 640
+[23:25:19.915] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 7
+    [35mpopulation[39m: 633
+    [35mwellbeingScore[39m: 0.8
+[23:25:19.917] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 641
+    [35mwellbeingScore[39m: 0.8
+[23:25:19.917] [32mINFO[39m (4872): [36mBusiness going bankrupt — closing[39m
+    [35mbizId[39m: 134
+    [35mbizName[39m: "Ресторан     №65"
+    [35mbalance[39m: -641
+    [35mticksUnprofitable[39m: 97
+[23:25:19.918] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 304
+    [35mbizName[39m: "Ресторан     №45"
+    [35mbalanceAfter[39m: 640
+    [35mbailoutAmount[39m: 800
+[23:25:19.919] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 1575
+    [35mbizName[39m: "Завод комплектующих №64"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.96
+    [35mgovBudgetAfter[39m: 117856
+[23:25:19.919] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2222
+    [35mbizName[39m: "Агроферма     №78"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.95
+    [35mgovBudgetAfter[39m: 116056
+[23:25:19.920] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2215
+    [35mbizName[39m: "Завод комплектующих №65"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.95
+    [35mgovBudgetAfter[39m: 113856
+[23:28:22.304] [32mINFO[39m (4872): [36mBusiness going bankrupt — closing[39m
+    [35mbizId[39m: 208
+    [35mbizName[39m: "Ресторан     №54"
+    [35mbalance[39m: -356
+    [35mticksUnprofitable[39m: 43
+[23:29:23.120] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 10
+    [35mpopulation[39m: 631
+[23:29:23.121] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 637
+[23:29:23.134] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 11
+    [35mpopulation[39m: 626
+    [35mwellbeingScore[39m: 0.81
+[23:29:23.136] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 634
+    [35mwellbeingScore[39m: 0.81
+[23:29:23.137] [32mINFO[39m (4872): [36mBusiness going bankrupt — closing[39m
+    [35mbizId[39m: 314
+    [35mbizName[39m: "Закусочная     №51"
+    [35mbalance[39m: -377
+    [35mticksUnprofitable[39m: 73
+[23:29:23.137] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 153
+    [35mbizName[39m: "Закусочная     №64"
+    [35mbalanceAfter[39m: 649
+    [35mbailoutAmount[39m: 800
+[23:29:23.137] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 247
+    [35mbizName[39m: "Ресторан     №51"
+    [35mbalanceAfter[39m: 594
+    [35mbailoutAmount[39m: 800
+[23:29:23.138] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 2220
+    [35mbizName[39m: "Фабрика материалов №66"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35magentMoney[39m: 4802
+[23:29:23.139] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2093
+    [35mbizName[39m: "Фабрика материалов №67"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.96
+    [35mgovBudgetAfter[39m: 141211
+[23:29:23.139] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2237
+    [35mbizName[39m: "Химический завод №68"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.95
+    [35mgovBudgetAfter[39m: 139011
+[23:29:23.140] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2234
+    [35mbizName[39m: "Производственный цех №69"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 31
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.94
+    [35mgovBudgetAfter[39m: 136811
+[23:33:26.203] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 626
+[23:33:26.205] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 632
+[23:33:26.215] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 10
+    [35mpopulation[39m: 622
+    [35mwellbeingScore[39m: 0.81
+[23:33:26.219] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 630
+    [35mwellbeingScore[39m: 0.81
+[23:33:26.220] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 141
+    [35mbizName[39m: "Магазин  №31"
+    [35mbalanceAfter[39m: 555
+    [35mbailoutAmount[39m: 800
+[23:33:26.220] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 189
+    [35mbizName[39m: "Сервисный центр  №30"
+    [35mbalanceAfter[39m: 643
+    [35mbailoutAmount[39m: 800
+[23:33:26.220] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 190
+    [35mbizName[39m: "Аптека  №31"
+    [35mbalanceAfter[39m: 609
+    [35mbailoutAmount[39m: 800
+[23:33:26.220] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 207
+    [35mbizName[39m: "Магазин  №29"
+    [35mbalanceAfter[39m: 544
+    [35mbailoutAmount[39m: 800
+[23:33:26.220] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 217
+    [35mbizName[39m: "Кафе     №50"
+    [35mbalanceAfter[39m: 602
+    [35mbailoutAmount[39m: 800
+[23:33:26.221] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 1892
+    [35mbizName[39m: "Ресторан     №62"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 32
+    [35magentMoney[39m: 4677
+[23:33:26.222] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2253
+    [35mbizName[39m: "Супермаркет     №63"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 45
+    [35mmarketRatio[39m: 0.69
+    [35mgovBudgetAfter[39m: 156948
+[23:33:26.222] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2250
+    [35mbizName[39m: "Производственный цех №70"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 31
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.94
+    [35mgovBudgetAfter[39m: 154748
+[23:33:26.223] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2247
+    [35mbizName[39m: "Завод комплектующих №71"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 31
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.94
+    [35mgovBudgetAfter[39m: 152548
+[23:37:29.601] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 622
+[23:37:29.603] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 628
+[23:37:29.616] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 15
+    [35mpopulation[39m: 613
+    [35mwellbeingScore[39m: 0.81
+[23:37:29.618] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 621
+    [35mwellbeingScore[39m: 0.81
+[23:37:29.619] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 191
+    [35mbizName[39m: "Супермаркет     №54"
+    [35mbalanceAfter[39m: 629
+    [35mbailoutAmount[39m: 800
+[23:37:29.619] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 237
+    [35mbizName[39m: "Столовая     №49"
+    [35mbalanceAfter[39m: 645
+    [35mbailoutAmount[39m: 800
+[23:37:29.619] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 301
+    [35mbizName[39m: "Ресторан     №42"
+    [35mbalanceAfter[39m: 639
+    [35mbailoutAmount[39m: 800
+[23:37:29.619] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 346
+    [35mbizName[39m: "Ресторан     №61"
+    [35mbalanceAfter[39m: 617
+    [35mbailoutAmount[39m: 800
+[23:37:29.620] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 1970
+    [35mbizName[39m: "Тепличный комбинат     №79"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35magentMoney[39m: 4666
+[23:37:29.620] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2268
+    [35mbizName[39m: "Птицефабрика     №80"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.95
+    [35mgovBudgetAfter[39m: 172587
+[23:37:29.621] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2263
+    [35mbizName[39m: "Химический завод №72"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 31
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.94
+    [35mgovBudgetAfter[39m: 170387
+[23:37:29.621] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2266
+    [35mbizName[39m: "Животноводческий комплекс     №81"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 31
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.94
+    [35mgovBudgetAfter[39m: 168587
+[23:41:32.713] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 613
+[23:41:32.714] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 619
+[23:41:32.722] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 611
+    [35mwellbeingScore[39m: 0.8
+[23:41:32.724] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 619
+    [35mwellbeingScore[39m: 0.8
+[23:41:32.724] [32mINFO[39m (4872): [36mWorld event triggered[39m
+    [35mevent[39m: {
+      "id": "economic_boom-81",
+      "type": "economic_boom",
+      "name": "Экономический подъём",
+      "description": "Торговая активность резко выросла. Все предприятия ежедневно получают дополнительный доход.",
+      "icon": "📈",
+      "startDay": 81,
+      "endDay": 84,
+      "severity": "positive"
+    }
+    [35mday[39m: 81
+[23:41:32.727] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2276
+    [35mbizName[39m: "Продуктовый     №64"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 40
+    [35mneedScore[39m: 48
+    [35mmarketRatio[39m: 1.02
+    [35mgovBudgetAfter[39m: 180956
+[23:41:32.727] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2273
+    [35mbizName[39m: "Завод комплектующих №73"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.95
+    [35mgovBudgetAfter[39m: 178756
+[23:41:32.728] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2281
+    [35mbizName[39m: "Тепличный комбинат     №82"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 31
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.94
+    [35mgovBudgetAfter[39m: 176956
+[23:45:36.029] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 611
+[23:45:36.031] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 617
+[23:45:36.040] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 7
+    [35mpopulation[39m: 610
+    [35mwellbeingScore[39m: 0.8
+[23:45:36.042] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 618
+    [35mwellbeingScore[39m: 0.8
+[23:45:36.044] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2292
+    [35mbizName[39m: "Супермаркет     №65"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 46
+    [35mmarketRatio[39m: 0.68
+    [35mgovBudgetAfter[39m: 196416
+[23:45:36.045] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2287
+    [35mbizName[39m: "Зерновое хозяйство     №83"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.96
+    [35mgovBudgetAfter[39m: 194616
+[23:45:36.045] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2294
+    [35mbizName[39m: "Ресторан     №66"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 46
+    [35mmarketRatio[39m: 0.67
+    [35mgovBudgetAfter[39m: 192616
+[23:49:39.375] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 610
+[23:49:39.377] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 616
+[23:49:39.388] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 9
+    [35mpopulation[39m: 607
+    [35mwellbeingScore[39m: 0.8
+[23:49:39.390] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 615
+    [35mwellbeingScore[39m: 0.8
+[23:49:39.392] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 1868
+    [35mbizName[39m: "Аптека  №50"
+    [35mbizType[39m: "service"
+    [35mlaunchCost[39m: 1500
+    [35msuccessScore[39m: 29
+    [35magentMoney[39m: 2364
+[23:49:39.393] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 2135
+    [35mbizName[39m: "Ресторан     №67"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 35
+    [35magentMoney[39m: 5716
+[23:49:39.393] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2031
+    [35mbizName[39m: "Кафе     №68"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 35
+    [35mneedScore[39m: 47
+    [35mmarketRatio[39m: 0.82
+    [35mgovBudgetAfter[39m: 222611
+[23:49:39.394] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2307
+    [35mbizName[39m: "Зерновое хозяйство     №84"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 31
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.94
+    [35mgovBudgetAfter[39m: 220811
+[23:49:39.394] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2311
+    [35mbizName[39m: "Животноводческий комплекс     №85"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 31
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.94
+    [35mgovBudgetAfter[39m: 219011
+[23:53:42.663] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 609
+[23:53:42.665] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 615
+[23:53:42.673] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 7
+    [35mpopulation[39m: 608
+    [35mwellbeingScore[39m: 0.8
+[23:53:42.674] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 616
+    [35mwellbeingScore[39m: 0.8
+[23:53:42.677] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2325
+    [35mbizName[39m: "Ресторан     №69"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 42
+    [35mneedScore[39m: 47
+    [35mmarketRatio[39m: 1.16
+    [35mgovBudgetAfter[39m: 241164
+[23:53:42.677] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2323
+    [35mbizName[39m: "Тепличный комбинат     №86"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.95
+    [35mgovBudgetAfter[39m: 239364
+[23:53:42.678] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2320
+    [35mbizName[39m: "Агроферма     №87"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.95
+    [35mgovBudgetAfter[39m: 237564
+[23:57:46.072] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 14
+    [35mpopulation[39m: 602
+[23:57:46.073] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 608
+[23:57:46.084] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 10
+    [35mpopulation[39m: 598
+    [35mwellbeingScore[39m: 0.81
+[23:57:46.086] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 606
+    [35mwellbeingScore[39m: 0.81
+[23:57:46.086] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 30
+    [35mbizName[39m: "Закусочная №20"
+    [35mbalanceAfter[39m: 622
+    [35mbailoutAmount[39m: 800
+[23:57:46.086] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 177
+    [35mbizName[39m: "Аптека  №26"
+    [35mbalanceAfter[39m: 629
+    [35mbailoutAmount[39m: 800
+[23:57:46.086] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 246
+    [35mbizName[39m: "Столовая     №50"
+    [35mbalanceAfter[39m: 632
+    [35mbailoutAmount[39m: 800
+[23:57:46.086] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 324
+    [35mbizName[39m: "Пекарня     №57"
+    [35mbalanceAfter[39m: 631
+    [35mbailoutAmount[39m: 800
+[23:57:46.086] [32mINFO[39m (4872): [36mOne-time government survival bailout issued[39m
+    [35mbizId[39m: 334
+    [35mbizName[39m: "Столовая     №59"
+    [35mbalanceAfter[39m: 626
+    [35mbailoutAmount[39m: 800
+[23:57:46.088] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 2008
+    [35mbizName[39m: "Пекарня     №70"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 32
+    [35magentMoney[39m: 4456
+[23:57:46.088] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 2130
+    [35mbizName[39m: "Зерновое хозяйство     №88"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35magentMoney[39m: 2771
+[23:57:46.089] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 2226
+    [35mbizName[39m: "Парикмахерская  №51"
+    [35mbizType[39m: "service"
+    [35mlaunchCost[39m: 1500
+    [35msuccessScore[39m: 28
+    [35magentMoney[39m: 2309
+[23:57:46.089] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2327
+    [35mbizName[39m: "Ресторан     №71"
+    [35mbizType[39m: "food"
+    [35mlaunchCost[39m: 2000
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 48
+    [35mmarketRatio[39m: 0.66
+    [35mgovBudgetAfter[39m: 266330
+[23:57:46.090] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2335
+    [35mbizName[39m: "Производственный цех №74"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.96
+    [35mgovBudgetAfter[39m: 264130
+[23:57:46.090] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2328
+    [35mbizName[39m: "Производственный цех №75"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.95
+    [35mgovBudgetAfter[39m: 261930
+[00:01:49.488] [32mINFO[39m (4872): [36mAgents died[39m
+    [35mcount[39m: 12
+    [35mpopulation[39m: 594
+[00:01:49.490] [32mINFO[39m (4872): [36mNew agents born[39m
+    [35mcount[39m: 6
+    [35mpopulation[39m: 600
+[00:01:49.503] [32mINFO[39m (4872): [36mAgents emigrated[39m
+    [35mcount[39m: 10
+    [35mpopulation[39m: 590
+    [35mwellbeingScore[39m: 0.8
+[00:01:49.505] [32mINFO[39m (4872): [36mAgents immigrated[39m
+    [35mcount[39m: 8
+    [35mpopulation[39m: 598
+    [35mwellbeingScore[39m: 0.8
+[00:01:49.507] [32mINFO[39m (4872): [36mSelf-funded business opened[39m
+    [35magentId[39m: 2024
+    [35mbizName[39m: "Химический завод №76"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35magentMoney[39m: 4149
+[00:01:49.508] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2346
+    [35mbizName[39m: "Производственный цех №77"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.95
+    [35mgovBudgetAfter[39m: 284771
+[00:01:49.508] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2340
+    [35mbizName[39m: "Цех упаковки №78"
+    [35mbizType[39m: "workshop"
+    [35mlaunchCost[39m: 2200
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.95
+    [35mgovBudgetAfter[39m: 282571
+[00:01:49.509] [32mINFO[39m (4872): [36mGovernment grant approved (need-driven)[39m
+    [35magentId[39m: 2144
+    [35mbizName[39m: "Молочная ферма     №89"
+    [35mbizType[39m: "farm"
+    [35mlaunchCost[39m: 1800
+    [35msuccessScore[39m: 32
+    [35mneedScore[39m: 0
+    [35mmarketRatio[39m: 0.95
+    [35mgovBudgetAfter[39m: 280771
+[00:04:31.599] [32mINFO[39m (4872): [36mBusiness going bankrupt — closing[39m
+    [35mbizId[39m: 300
+    [35mbizName[39m: "Столовая     №41"
+    [35mbalance[39m: -327
+    [35mticksUnprofitable[39m: 41
+[00:04:51.890] [32mINFO[39m (4872): [36mBusiness going bankrupt — closing[39m
+    [35mbizId[39m: 299
+    [35mbizName[39m: "Аптека  №42"
+    [35mbalance[39m: -338
+    [35mticksUnprofitable[39m: 43
