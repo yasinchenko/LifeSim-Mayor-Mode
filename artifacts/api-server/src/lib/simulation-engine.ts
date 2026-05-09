@@ -17,6 +17,20 @@ import {
 } from "@workspace/db";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { logger } from "./logger";
+import {
+  DISTRICTS,
+  DISTRICT_INVESTMENTS,
+  type DistrictInvestmentType,
+  type DistrictIncident,
+  type DistrictIncidentStatus,
+  type DistrictIncidentType,
+  type DistrictHiringQueueItem,
+  type DistrictMetricOverrides,
+  type DistrictServiceStaff,
+  type DistrictServiceType,
+  getDistrictById,
+  getDistrictsWithServices,
+} from "./districts";
 
 export interface SimulationConfig {
   taxRate: number;
@@ -74,6 +88,18 @@ interface BusinessState extends Business {
   hiredThisTick: number;
   ticksUnprofitable: number; // how many consecutive ticks with negative balance
   hasReceivedBailout: boolean; // one-time survival grant — never paid twice
+}
+
+interface DistrictServiceRuntimeState {
+  staff: DistrictServiceStaff;
+  staffAgentIds: Record<DistrictServiceType, number[]>;
+  hiringQueue: Array<DistrictHiringQueueItem & { agentIds: number[] }>;
+}
+
+interface DistrictInvestmentReputationDelta {
+  residents: number;
+  business: number;
+  government: number;
 }
 
 // Max hiring capacity per business type — derived from the design spec table
@@ -318,14 +344,7 @@ interface DecisionModifiers {
 
 const DAILY_ACTION_POINTS_MAX = 1;
 const RESIDENT_REQUEST_BUFFER_MAX = 30;
-const RESIDENT_REQUEST_DISTRICTS = [
-  "Северный квартал",
-  "Старый центр",
-  "Рабочая слобода",
-  "Южные дома",
-  "Прибрежный район",
-  "Новый массив",
-];
+const RESIDENT_REQUEST_DISTRICTS = DISTRICTS.map(district => district.name);
 const RESIDENT_REQUEST_CATEGORY_LABELS: Record<ResidentRequestCategory, string> = {
   finance: "Финансы",
   work: "Работа",
@@ -1463,6 +1482,11 @@ class SimulationEngine {
   private residentRequestReputationDelta = 0;
   private factionDemands: FactionDemandRecord[] = [];
   private factionDemandSeq = 1;
+  private districtServices: Map<string, DistrictServiceRuntimeState> = new Map();
+  private districtIncidents: DistrictIncident[] = [];
+  private districtIncidentSeq = 1;
+  private districtMetricOverrides: Map<string, DistrictMetricOverrides> = new Map();
+  private districtInvestmentReputationDelta: DistrictInvestmentReputationDelta = { residents: 0, business: 0, government: 0 };
 
   async initialize(): Promise<void> {
     logger.info("Initializing simulation engine...");
@@ -1474,6 +1498,9 @@ class SimulationEngine {
     await this.loadRelations();
     await this.loadAgentStatHistory();
     await this.loadDailyDecrees();
+    await this.loadDistrictServices();
+    await this.loadDistrictIncidents();
+    await this.loadDistrictInvestments();
 
     if (this.agents.size === 0) {
       logger.info("No agents found, generating initial population...");
@@ -2261,6 +2288,13 @@ class SimulationEngine {
     this.residentRequestReputationDelta = 0;
     this.factionDemands = [];
     this.factionDemandSeq = 1;
+    this.resetDistrictServices();
+    this.districtIncidents = [];
+    this.districtIncidentSeq = 1;
+    this.resetDistrictInvestments();
+    await this.saveDistrictServices();
+    await this.saveDistrictIncidents();
+    await this.saveDistrictInvestments();
 
     this.state = {
       tick: 0,
@@ -2283,6 +2317,13 @@ class SimulationEngine {
     };
     await this.persistState();
     await this.generatePopulation();
+    this.resetDistrictServices();
+    this.districtIncidents = [];
+    this.districtIncidentSeq = 1;
+    this.resetDistrictInvestments();
+    await this.saveDistrictServices();
+    await this.saveDistrictIncidents();
+    await this.saveDistrictInvestments();
     await this.start();
     logger.info("Simulation reset complete");
   }
@@ -2452,6 +2493,9 @@ class SimulationEngine {
     await this.loadRelations();
     await this.loadAgentStatHistory();
     await this.loadDailyDecrees();
+    await this.loadDistrictServices();
+    await this.loadDistrictIncidents();
+    await this.loadDistrictInvestments();
     if (this.state.running) {
       this.startTimer();
     }
@@ -2513,11 +2557,504 @@ class SimulationEngine {
     }, this.config.tickIntervalMs);
   }
 
+  private resetDistrictServices(): void {
+    this.districtServices.clear();
+    for (const district of DISTRICTS) {
+      this.districtServices.set(district.id, {
+        staff: { ...district.serviceStaff },
+        staffAgentIds: {
+          utility: [],
+          police: [],
+          fire: [],
+        },
+        hiringQueue: [],
+      });
+    }
+  }
+
+  private async loadDistrictServices(): Promise<void> {
+    const [row] = await db.select().from(simConfigTable).where(eq(simConfigTable.key, "districtServicesJson")).limit(1);
+    this.resetDistrictServices();
+    if (!row?.value) return;
+
+    try {
+      const parsed = JSON.parse(row.value) as Record<string, {
+        staff?: Partial<DistrictServiceStaff>;
+        staffAgentIds?: Partial<Record<DistrictServiceType, number[]>>;
+        hiringQueue?: Array<Partial<DistrictHiringQueueItem> & { agentIds?: number[] }>;
+      }>;
+
+      for (const district of DISTRICTS) {
+        const saved = parsed[district.id];
+        const state = this.districtServices.get(district.id);
+        if (!saved || !state) continue;
+
+        state.staff = {
+          utilityWorkers: Number(saved.staff?.utilityWorkers ?? state.staff.utilityWorkers),
+          policeOfficers: Number(saved.staff?.policeOfficers ?? state.staff.policeOfficers),
+          firefighters: Number(saved.staff?.firefighters ?? state.staff.firefighters),
+        };
+        state.staffAgentIds = {
+          utility: (saved.staffAgentIds?.utility ?? []).filter(id => this.agents.has(id)),
+          police: (saved.staffAgentIds?.police ?? []).filter(id => this.agents.has(id)),
+          fire: (saved.staffAgentIds?.fire ?? []).filter(id => this.agents.has(id)),
+        };
+        state.hiringQueue = (saved.hiringQueue ?? [])
+          .filter(item => item.service === "utility" || item.service === "police" || item.service === "fire")
+          .map(item => ({
+            service: item.service as DistrictServiceType,
+            count: Math.max(1, Number(item.count ?? 1)),
+            ticksRemaining: Math.max(0, Number(item.ticksRemaining ?? 0)),
+            agentIds: (item.agentIds ?? []).filter(id => this.agents.has(id)),
+          }))
+          .filter(item => item.agentIds.length > 0);
+      }
+    } catch {
+      this.resetDistrictServices();
+    }
+  }
+
+  private async saveDistrictServices(): Promise<void> {
+    const payload: Record<string, unknown> = {};
+    for (const [districtId, state] of this.districtServices) {
+      payload[districtId] = {
+        staff: state.staff,
+        staffAgentIds: state.staffAgentIds,
+        hiringQueue: state.hiringQueue,
+      };
+    }
+
+    await db
+      .insert(simConfigTable)
+      .values({ key: "districtServicesJson", value: JSON.stringify(payload) })
+      .onConflictDoUpdate({
+        target: simConfigTable.key,
+        set: { value: JSON.stringify(payload) },
+      });
+  }
+
+  private normalizeDistrictIncident(raw: Partial<DistrictIncident>): DistrictIncident | null {
+    if (!raw.id || typeof raw.id !== "string") return null;
+    if (!raw.districtId || !DISTRICTS.some(district => district.id === raw.districtId)) return null;
+    const type = raw.type;
+    if (type !== "fire" && type !== "protest" && type !== "utility_failure" && type !== "staff_quit") return null;
+    const status = raw.status;
+    if (status !== "active" && status !== "resolved" && status !== "ignored" && status !== "expired") return null;
+    const requiredService = raw.requiredService === "utility" || raw.requiredService === "police" || raw.requiredService === "fire"
+      ? raw.requiredService
+      : null;
+
+    return {
+      id: raw.id,
+      districtId: raw.districtId,
+      type,
+      status,
+      createdTick: Math.max(0, Number(raw.createdTick ?? this.state.tick)),
+      createdDay: Math.max(1, Number(raw.createdDay ?? this.state.gameDay)),
+      deadlineTick: Math.max(0, Number(raw.deadlineTick ?? this.state.tick)),
+      deadlineDay: Math.max(1, Number(raw.deadlineDay ?? this.state.gameDay)),
+      severity: Math.max(1, Math.min(100, Number(raw.severity ?? 25))),
+      requiredService,
+      basePenalty: Math.max(0, Number(raw.basePenalty ?? 0)),
+      ignoredPenalty: Math.max(0, Number(raw.ignoredPenalty ?? 0)),
+    };
+  }
+
+  private async loadDistrictIncidents(): Promise<void> {
+    const [row] = await db.select().from(simConfigTable).where(eq(simConfigTable.key, "districtIncidentsJson")).limit(1);
+    this.districtIncidents = [];
+    this.districtIncidentSeq = 1;
+    if (!row?.value) return;
+
+    try {
+      const parsed = JSON.parse(row.value) as { incidents?: Partial<DistrictIncident>[]; nextSeq?: number };
+      this.districtIncidents = (parsed.incidents ?? [])
+        .map(incident => this.normalizeDistrictIncident(incident))
+        .filter((incident): incident is DistrictIncident => Boolean(incident));
+      this.districtIncidentSeq = Math.max(
+        Number(parsed.nextSeq ?? 1),
+        this.districtIncidents.reduce((max, incident) => {
+          const match = /^di-(\d+)$/.exec(incident.id);
+          return Math.max(max, match ? Number(match[1]) + 1 : 1);
+        }, 1),
+      );
+    } catch {
+      this.districtIncidents = [];
+      this.districtIncidentSeq = 1;
+    }
+  }
+
+  private async saveDistrictIncidents(): Promise<void> {
+    await db
+      .insert(simConfigTable)
+      .values({
+        key: "districtIncidentsJson",
+        value: JSON.stringify({ nextSeq: this.districtIncidentSeq, incidents: this.districtIncidents }),
+      })
+      .onConflictDoUpdate({
+        target: simConfigTable.key,
+        set: { value: JSON.stringify({ nextSeq: this.districtIncidentSeq, incidents: this.districtIncidents }) },
+      });
+  }
+
+  private resetDistrictInvestments(): void {
+    this.districtMetricOverrides = new Map(DISTRICTS.map(district => [district.id, {}]));
+    this.districtInvestmentReputationDelta = { residents: 0, business: 0, government: 0 };
+  }
+
+  private normalizeDistrictMetricOverrides(districtId: string, raw: Partial<DistrictMetricOverrides>): DistrictMetricOverrides {
+    const district = DISTRICTS.find(item => item.id === districtId);
+    if (!district) return {};
+    const normalized: DistrictMetricOverrides = {};
+    for (const key of Object.keys(district.metrics) as Array<keyof DistrictMetricOverrides>) {
+      const value = Number(raw[key]);
+      if (Number.isFinite(value)) {
+        normalized[key] = Math.round(clamp(value, 0, 100) * 10) / 10;
+      }
+    }
+    return normalized;
+  }
+
+  private async loadDistrictInvestments(): Promise<void> {
+    const [row] = await db.select().from(simConfigTable).where(eq(simConfigTable.key, "districtInvestmentsJson")).limit(1);
+    this.resetDistrictInvestments();
+    if (!row?.value) return;
+
+    try {
+      const parsed = JSON.parse(row.value) as {
+        metrics?: Record<string, Partial<DistrictMetricOverrides>>;
+        reputation?: Partial<DistrictInvestmentReputationDelta>;
+      };
+      for (const district of DISTRICTS) {
+        this.districtMetricOverrides.set(
+          district.id,
+          this.normalizeDistrictMetricOverrides(district.id, parsed.metrics?.[district.id] ?? {}),
+        );
+      }
+      this.districtInvestmentReputationDelta = {
+        residents: clamp(Number(parsed.reputation?.residents ?? 0), -20, 20),
+        business: clamp(Number(parsed.reputation?.business ?? 0), -20, 20),
+        government: clamp(Number(parsed.reputation?.government ?? 0), -20, 20),
+      };
+    } catch {
+      this.resetDistrictInvestments();
+    }
+  }
+
+  private async saveDistrictInvestments(): Promise<void> {
+    const metrics: Record<string, DistrictMetricOverrides> = {};
+    for (const district of DISTRICTS) {
+      metrics[district.id] = this.districtMetricOverrides.get(district.id) ?? {};
+    }
+
+    const value = JSON.stringify({
+      metrics,
+      reputation: this.districtInvestmentReputationDelta,
+    });
+    await db
+      .insert(simConfigTable)
+      .values({ key: "districtInvestmentsJson", value })
+      .onConflictDoUpdate({
+        target: simConfigTable.key,
+        set: { value },
+      });
+  }
+
+  private getDistrictIncidentSnapshot(status?: DistrictIncidentStatus): DistrictIncident[] {
+    return this.districtIncidents
+      .filter(incident => status ? incident.status === status : true)
+      .map(incident => ({ ...incident }));
+  }
+
+  private getDistrictIncidentsByDistrict(status?: DistrictIncidentStatus): Map<string, DistrictIncident[]> {
+    const map = new Map<string, DistrictIncident[]>();
+    for (const incident of this.getDistrictIncidentSnapshot(status)) {
+      const list = map.get(incident.districtId) ?? [];
+      list.push(incident);
+      map.set(incident.districtId, list);
+    }
+    return map;
+  }
+
+  private requiredServiceForIncident(type: DistrictIncidentType): DistrictServiceType | null {
+    if (type === "fire") return "fire";
+    if (type === "protest") return "police";
+    if (type === "utility_failure") return "utility";
+    return null;
+  }
+
+  private incidentBasePenalty(type: DistrictIncidentType, severity: number): number {
+    const multiplier = type === "staff_quit" ? 0.04 : type === "protest" ? 0.09 : 0.07;
+    return Math.round(severity * multiplier * 10) / 10;
+  }
+
+  private applyDistrictIncidentReputationDelta(delta: number): void {
+    this.residentRequestReputationDelta = clamp(this.residentRequestReputationDelta + delta, -10, 5);
+  }
+
+  private createDistrictIncidentRecord(
+    districtId: string,
+    type: DistrictIncidentType,
+    severity: number,
+    deadlineTicks: number,
+  ): DistrictIncident {
+    const safeSeverity = Math.max(1, Math.min(100, Math.round(severity)));
+    const safeDeadlineTicks = Math.max(1, Math.floor(deadlineTicks));
+    const basePenalty = this.incidentBasePenalty(type, safeSeverity);
+
+    return {
+      id: `di-${this.districtIncidentSeq++}`,
+      districtId,
+      type,
+      status: "active",
+      createdTick: this.state.tick,
+      createdDay: this.state.gameDay,
+      deadlineTick: this.state.tick + safeDeadlineTicks,
+      deadlineDay: this.state.gameDay + Math.max(1, Math.ceil(safeDeadlineTicks / 24)),
+      severity: safeSeverity,
+      requiredService: this.requiredServiceForIncident(type),
+      basePenalty,
+      ignoredPenalty: Math.round(basePenalty * 2 * 10) / 10,
+    };
+  }
+
+  private expireDistrictIncidents(): boolean {
+    let changed = false;
+    for (const incident of this.districtIncidents) {
+      if (incident.status === "active" && this.state.tick >= incident.deadlineTick) {
+        incident.status = "expired";
+        this.applyDistrictIncidentReputationDelta(-incident.ignoredPenalty);
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  private districtServiceStaffCount(districtId: string, service: DistrictServiceType): number {
+    const state = this.districtServices.get(districtId);
+    if (!state) return 0;
+    if (service === "utility") return state.staff.utilityWorkers;
+    if (service === "police") return state.staff.policeOfficers;
+    return state.staff.firefighters;
+  }
+
+  private districtServiceBaseline(districtId: string, service: DistrictServiceType): number {
+    const district = DISTRICTS.find(item => item.id === districtId);
+    if (!district) return 1;
+    if (service === "utility") return Math.max(1, district.serviceStaff.utilityWorkers);
+    if (service === "police") return Math.max(1, district.serviceStaff.policeOfficers);
+    return Math.max(1, district.serviceStaff.firefighters);
+  }
+
+  private getDistrictMetrics(districtId: string) {
+    const district = DISTRICTS.find(item => item.id === districtId);
+    if (!district) return null;
+    return {
+      ...district.metrics,
+      ...(this.districtMetricOverrides.get(districtId) ?? {}),
+    };
+  }
+
+  private districtStaffCoverage(
+    districtId: string,
+    service: DistrictServiceType,
+  ): { shortage: number; surplus: number } {
+    const district = DISTRICTS.find(item => item.id === districtId);
+    const state = this.districtServices.get(districtId);
+    if (!district || !state) return { shortage: 0, surplus: 0 };
+
+    const required =
+      service === "utility"
+        ? this.districtServiceBaseline(districtId, "utility")
+        : service === "police"
+          ? this.districtServiceBaseline(districtId, "police")
+          : this.districtServiceBaseline(districtId, "fire");
+    const current = this.districtServiceStaffCount(districtId, service);
+    const baseline = Math.max(1, required);
+
+    return {
+      shortage: Math.max(0, (baseline - current) / baseline),
+      surplus: Math.max(0, Math.min(1, (current - baseline) / baseline)),
+    };
+  }
+
+  private districtIncidentRisk(districtId: string, type: DistrictIncidentType): number {
+    const district = DISTRICTS.find(item => item.id === districtId);
+    if (!district) return 0;
+
+    const metrics = this.getDistrictMetrics(districtId) ?? district.metrics;
+    if (type === "utility_failure") {
+      const coverage = this.districtStaffCoverage(districtId, "utility");
+      return clamp(
+        ((100 - metrics.infrastructure) / 100) * 0.52 +
+        (metrics.accidentRisk / 100) * 0.3 +
+        coverage.shortage * 0.34 -
+        coverage.surplus * 0.18,
+        0,
+        1,
+      );
+    }
+
+    if (type === "fire") {
+      const coverage = this.districtStaffCoverage(districtId, "fire");
+      return clamp(
+        ((100 - metrics.safety) / 100) * 0.36 +
+        (metrics.accidentRisk / 100) * 0.26 +
+        ((100 - metrics.infrastructure) / 100) * 0.16 +
+        coverage.shortage * 0.3 -
+        coverage.surplus * 0.16,
+        0,
+        1,
+      );
+    }
+
+    if (type === "protest") {
+      const coverage = this.districtStaffCoverage(districtId, "police");
+      return clamp(
+        ((100 - metrics.mayorReputationResidents) / 100) * 0.54 +
+        (metrics.poverty / 100) * 0.24 +
+        ((100 - metrics.safety) / 100) * 0.16 +
+        coverage.shortage * 0.22 -
+        coverage.surplus * 0.14,
+        0,
+        1,
+      );
+    }
+
+    return 0;
+  }
+
+  private generateDailyDistrictIncidents(): boolean {
+    if (this.state.gameStatus !== "active") return false;
+
+    let changed = false;
+    const incidentTypes: DistrictIncidentType[] = ["utility_failure", "fire", "protest"];
+    for (const district of DISTRICTS) {
+      const activeDistrictIncidents = this.districtIncidents.filter(incident =>
+        incident.districtId === district.id &&
+        incident.status === "active"
+      );
+      if (activeDistrictIncidents.length >= 2) continue;
+
+      const candidates = incidentTypes
+        .filter(type => !activeDistrictIncidents.some(incident => incident.type === type))
+        .map(type => ({
+          type,
+          risk: this.districtIncidentRisk(district.id, type),
+        }))
+        .filter(candidate => candidate.risk > 0.18);
+      if (candidates.length === 0) continue;
+
+      candidates.sort((a, b) => b.risk - a.risk);
+      for (const candidate of candidates) {
+        if (activeDistrictIncidents.length >= 2) break;
+        const probability = clamp(0.015 + Math.pow(candidate.risk, 1.35) * 0.22, 0, 0.34);
+        if (Math.random() >= probability) continue;
+
+        const severity = 18 + candidate.risk * 62 + rand(-6, 8);
+        const deadlineTicks = candidate.type === "fire"
+          ? 24
+          : candidate.type === "protest"
+            ? 48
+            : 36;
+        const incident = this.createDistrictIncidentRecord(
+          district.id,
+          candidate.type,
+          severity,
+          deadlineTicks,
+        );
+        this.districtIncidents.unshift(incident);
+        activeDistrictIncidents.push(incident);
+        changed = true;
+        break;
+      }
+    }
+
+    return changed;
+  }
+
+  private getDistrictServiceSnapshot() {
+    return new Map(
+      Array.from(this.districtServices.entries()).map(([districtId, state]) => [
+        districtId,
+        {
+          staff: { ...state.staff },
+          hiringQueue: state.hiringQueue.map(({ service, count, ticksRemaining }) => ({ service, count, ticksRemaining })),
+        },
+      ]),
+    );
+  }
+
+  private isDistrictServiceAgent(agentId: number): boolean {
+    for (const state of this.districtServices.values()) {
+      if (state.hiringQueue.some(item => item.agentIds.includes(agentId))) return true;
+      if (state.staffAgentIds.utility.includes(agentId)) return true;
+      if (state.staffAgentIds.police.includes(agentId)) return true;
+      if (state.staffAgentIds.fire.includes(agentId)) return true;
+    }
+    return false;
+  }
+
+  private incrementDistrictServiceStaff(staff: DistrictServiceStaff, service: DistrictServiceType, count: number): void {
+    if (service === "utility") staff.utilityWorkers += count;
+    else if (service === "police") staff.policeOfficers += count;
+    else staff.firefighters += count;
+  }
+
+  private serviceLabel(service: DistrictServiceType): string {
+    if (service === "utility") return "Коммунальная служба";
+    if (service === "police") return "Полиция";
+    return "Пожарная служба";
+  }
+
+  private processDistrictServiceHiringQueue(): boolean {
+    let changed = false;
+    for (const [districtId, state] of this.districtServices) {
+      const remainingQueue: DistrictServiceRuntimeState["hiringQueue"] = [];
+      for (const item of state.hiringQueue) {
+        const ticksRemaining = Math.max(0, item.ticksRemaining - 1);
+        if (ticksRemaining > 0) {
+          remainingQueue.push({ ...item, ticksRemaining });
+          changed = true;
+          continue;
+        }
+
+        const completedAgents = item.agentIds
+          .map(agentId => this.agents.get(agentId))
+          .filter((agent): agent is AgentState => Boolean(agent && agent.employerId == null && !agent.isRetired));
+        const completedCount = completedAgents.length;
+        changed = true;
+        if (completedCount <= 0) continue;
+
+        this.incrementDistrictServiceStaff(state.staff, item.service, completedCount);
+        state.staffAgentIds[item.service].push(...completedAgents.map(agent => agent.id));
+        for (const agent of completedAgents) {
+          agent.currentAction = "service_work";
+          agent.jobStartTick = this.state.tick;
+          agent.jobHistory = [...agent.jobHistory, {
+            tick: this.state.tick,
+            event: "hired",
+            businessId: null,
+            businessName: `${this.serviceLabel(item.service)} · ${getDistrictById(districtId, this.config.baseSalary, this.getDistrictServiceSnapshot())?.name ?? districtId}`,
+          }];
+        }
+      }
+      state.hiringQueue = remainingQueue;
+    }
+    return changed;
+  }
+
   private async tick(): Promise<void> {
     if (!this.state.running) return;
     const startTime = Date.now();
 
     this.state.tick++;
+    const districtQueueChanged = this.processDistrictServiceHiringQueue();
+    const districtIncidentChanged = this.expireDistrictIncidents();
+    if (districtQueueChanged) {
+      await this.saveDistrictServices();
+    }
+    if (districtIncidentChanged) await this.saveDistrictIncidents();
     this.state.gameHour = (this.state.gameHour + 1) % 24;
     if (this.state.gameHour === 0) this.state.gameDay++;
 
@@ -2531,6 +3068,9 @@ class SimulationEngine {
     if (isNewDay) {
       this.applyDailyDecisionEffects();
       this.generateFactionDemands();
+      if (this.generateDailyDistrictIncidents()) {
+        await this.saveDistrictIncidents();
+      }
     }
     this.residentRequestReputationDelta = clamp(this.residentRequestReputationDelta * 0.995, -5, 5);
     this.generateResidentRequests();
@@ -2590,7 +3130,7 @@ class SimulationEngine {
       _sumWealth += a.money;
       if (!a.isRetired && a.age >= 18 && a.age <= 65) {
         _workingCount++;
-        if (a.employerId != null) _employedCount++;
+        if (a.employerId != null || this.isDistrictServiceAgent(a.id)) _employedCount++;
       }
     }
     const _avgFundNeeds = _pop > 0
@@ -2920,7 +3460,7 @@ class SimulationEngine {
       //   а) в бизнесе есть вакансия на грейде агента по таблице штатного расписания, ИЛИ
       //   б) у бизнеса есть динамическая ёмкость выше STAFFING_TABLE — лишние места
       //      выделяются как grade-1 позиции (рядовые работники).
-      if (!agent.isRetired && agent.employerId == null && availableBusinessIds.length > 0 && Math.random() < 0.60) {
+      if (!agent.isRetired && agent.employerId == null && !this.isDistrictServiceAgent(agent.id) && availableBusinessIds.length > 0 && Math.random() < 0.60) {
         const eligibleBizIds = availableBusinessIds.filter(bizId => {
           const biz = this.businesses.get(bizId);
           if (!biz) return false;
@@ -2963,6 +3503,7 @@ class SimulationEngine {
       if (!agent.isRetired
           && agent.jailedUntilTick == null
           && agent.employerId == null
+          && !this.isDistrictServiceAgent(agent.id)
           && agent.money < 20
           && agent.needs.financialSafety < 25
           && Math.random() < robberyChance) {
@@ -3260,7 +3801,10 @@ class SimulationEngine {
         }
       } else if (criticalNeed === "financialSafety") {
         // Financial crisis: prioritise earning money (salary paid daily, not per-tick)
-        if (agent.employerId) {
+        if (this.isDistrictServiceAgent(agent.id)) {
+          agent.currentAction = "service_work";
+          agent.needs.financialSafety = clamp(agent.needs.financialSafety + rand(3, 7));
+        } else if (agent.employerId) {
           agent.currentAction = "work";
           agent.needs.financialSafety = clamp(agent.needs.financialSafety + rand(3, 7));
         } else {
@@ -3284,7 +3828,10 @@ class SimulationEngine {
         }
       } else if (criticalNeed === "housingSafety") {
         // Housing crisis: urgently get a job (salary paid daily, not per-tick)
-        if (agent.employerId) {
+        if (this.isDistrictServiceAgent(agent.id)) {
+          agent.currentAction = "service_work";
+          agent.needs.housingSafety = clamp(agent.needs.housingSafety + rand(3, 8));
+        } else if (agent.employerId) {
           agent.currentAction = "work";
           agent.needs.housingSafety = clamp(agent.needs.housingSafety + rand(3, 8));
         } else {
@@ -3314,7 +3861,10 @@ class SimulationEngine {
       } else if (criticalNeed === "wellbeing") {
         // Желаемый уровень жизни не достигнут — агент пытается сменить работу на лучшую
         const targetGradeVal = targetGrade(agent.ambition);
-        if (agent.employerId) {
+        if (this.isDistrictServiceAgent(agent.id)) {
+          agent.currentAction = "service_work";
+          agent.needs.wellbeing = clamp(agent.needs.wellbeing + rand(3, 8));
+        } else if (agent.employerId) {
           // Ищем вакансию с более высокой карьерной ступенью (или просто другую с достаточным балансом)
           const higherBiz = Array.from(this.businesses.values()).filter(
             b => b.id !== agent.employerId && b.balance > 0 && b.employeeCount < b.maxEmployees
@@ -3769,6 +4319,36 @@ class SimulationEngine {
         }
       }
       this.state.totalPublicServicesPaid += dailyPublicSubsidy;
+      this.state.governmentBudget = runningBudget;
+
+      let dailyDistrictServiceSpend = 0;
+      for (const districtService of this.districtServices.values()) {
+        const staffCount =
+          districtService.staff.utilityWorkers +
+          districtService.staff.policeOfficers +
+          districtService.staff.firefighters;
+        const payroll = staffCount * baseSalary;
+        const serviceExpense = Math.round(payroll * 1.1);
+        const paid = Math.min(runningBudget, serviceExpense);
+        if (paid <= 0) break;
+
+        runningBudget -= paid;
+        dailyDistrictServiceSpend += paid;
+
+        if (paid >= serviceExpense) {
+          for (const agentId of [
+            ...districtService.staffAgentIds.utility,
+            ...districtService.staffAgentIds.police,
+            ...districtService.staffAgentIds.fire,
+          ]) {
+            const agent = this.agents.get(agentId);
+            if (!agent || agent.isRetired) continue;
+            agent.money += baseSalary;
+            agent.needs.financialSafety = clamp(agent.needs.financialSafety + rand(2, 5));
+          }
+        }
+      }
+      this.state.totalPublicServicesPaid += dailyDistrictServiceSpend;
       this.state.governmentBudget = runningBudget;
 
       // ── Daily raw-producer support: farms and workshops deeply in the red
@@ -4738,6 +5318,7 @@ class SimulationEngine {
       a.age >= 25 && a.age <= 55 &&
       a.jailedUntilTick == null &&
       !existingOwnerIds.has(a.id) &&
+      !this.isDistrictServiceAgent(a.id) &&
       (a.ambition     ?? 50) >= SELF_AMBITION_MIN &&
       (a.intelligence ?? 50) >= SELF_INTEL_MIN &&
       Math.random() < SELF_INITIATIVE_RATE
@@ -4780,6 +5361,7 @@ class SimulationEngine {
         !a.isRetired &&
         a.age >= 18 && a.age <= 65 &&
         a.employerId == null &&
+        !this.isDistrictServiceAgent(a.id) &&
         a.jailedUntilTick == null &&
         !existingOwnerIds.has(a.id)
       )
@@ -5042,7 +5624,7 @@ class SimulationEngine {
     const avgWealth = agents.reduce((s, a) => s + a.money, 0) / agents.length;
     // Безработица = только среди трудоспособных (не пенсионеры)
     const workingAge = agents.filter(a => !a.isRetired);
-    const employed = workingAge.filter(a => a.employerId != null).length;
+    const employed = workingAge.filter(a => a.employerId != null || this.isDistrictServiceAgent(a.id)).length;
     const unemploymentRate = workingAge.length > 0
       ? ((workingAge.length - employed) / workingAge.length) * 100
       : 0;
@@ -5080,9 +5662,23 @@ class SimulationEngine {
     const profitablePercent = this.getProfitableBusinessPercent();
     const gdp = gdpOverride ?? Array.from(this.businesses.values()).reduce((s, b) => s + b.balance, 0);
 
-    const residentsScore = clampScore(avgMood * 0.5 + (100 - unemploymentRate) * 0.3 + avgHealth * 0.2 + this.residentRequestReputationDelta);
-    const businessScore = clampScore(profitablePercent * 0.65 + Math.min(35, Math.max(0, gdp / 10000)));
-    const governmentScore = clampScore(Math.min(100, Math.max(0, this.state.governmentBudget / 2500)) * 0.7 + 30);
+    const residentsScore = clampScore(
+      avgMood * 0.5 +
+      (100 - unemploymentRate) * 0.3 +
+      avgHealth * 0.2 +
+      this.residentRequestReputationDelta +
+      this.districtInvestmentReputationDelta.residents,
+    );
+    const businessScore = clampScore(
+      profitablePercent * 0.65 +
+      Math.min(35, Math.max(0, gdp / 10000)) +
+      this.districtInvestmentReputationDelta.business,
+    );
+    const governmentScore = clampScore(
+      Math.min(100, Math.max(0, this.state.governmentBudget / 2500)) * 0.7 +
+      30 +
+      this.districtInvestmentReputationDelta.government,
+    );
     const securityScore = clampScore((avgPhysicalSafety + avgHousingSafety) / 2);
     const playerDecisionCount = this.getPlayerDecisionCount();
     const requiredDecisionCount = Math.max(4, Math.min(10, Math.ceil(this.state.dayLimit * 0.22)));
@@ -5783,7 +6379,7 @@ class SimulationEngine {
           "Нужна поддержка после неудачной недели.",
         ]), "financialSafety");
       }
-      if (!agent.isRetired && agent.employerId == null && agent.age >= 18 && agent.age <= 65 && unemploymentRate > 8) {
+      if (!agent.isRetired && agent.employerId == null && !this.isDistrictServiceAgent(agent.id) && agent.age >= 18 && agent.age <= 65 && unemploymentRate > 8) {
         addCandidate(agent, "work", pick([
           "Просит помочь найти работу в городе.",
           "Жалуется, что вакансий рядом почти нет.",
@@ -6031,6 +6627,229 @@ class SimulationEngine {
     };
   }
 
+  getDistricts() {
+    return getDistrictsWithServices(
+      this.config.baseSalary,
+      this.getDistrictServiceSnapshot(),
+      this.getDistrictIncidentsByDistrict(),
+      this.districtMetricOverrides,
+    );
+  }
+
+  getDistrict(id: string) {
+    return getDistrictById(
+      id,
+      this.config.baseSalary,
+      this.getDistrictServiceSnapshot(),
+      this.getDistrictIncidentsByDistrict(),
+      this.districtMetricOverrides,
+    );
+  }
+
+  getDistrictIncidents(status?: DistrictIncidentStatus) {
+    return this.getDistrictIncidentSnapshot(status);
+  }
+
+  getDistrictIncident(id: string) {
+    const incident = this.districtIncidents.find(item => item.id === id);
+    return incident ? { ...incident } : null;
+  }
+
+  async respondDistrictIncident(id: string) {
+    if (this.state.gameStatus !== "active") {
+      throw new Error("GAME_FINISHED");
+    }
+
+    const incident = this.districtIncidents.find(item => item.id === id);
+    if (!incident) {
+      throw new Error("UNKNOWN_DISTRICT_INCIDENT");
+    }
+    if (incident.status !== "active") {
+      throw new Error("DISTRICT_INCIDENT_NOT_ACTIVE");
+    }
+
+    let effectiveness = 1;
+    let partial = false;
+    if (incident.requiredService) {
+      const available = this.districtServiceStaffCount(incident.districtId, incident.requiredService);
+      if (available <= 0) {
+        throw new Error("NOT_ENOUGH_DISTRICT_STAFF");
+      }
+
+      const baseline = this.districtServiceBaseline(incident.districtId, incident.requiredService);
+      effectiveness = Math.max(0.2, Math.min(1, available / baseline));
+      partial = effectiveness < 1;
+    }
+
+    const reputationDelta = -Math.round(incident.basePenalty * (1 - effectiveness) * 10) / 10;
+    if (reputationDelta !== 0) {
+      this.applyDistrictIncidentReputationDelta(reputationDelta);
+    }
+    incident.status = "resolved";
+
+    await this.saveDistrictIncidents();
+    await this.persistState();
+    return {
+      incident: { ...incident },
+      effectiveness: Math.round(effectiveness * 100) / 100,
+      reputationDelta,
+      partial,
+    };
+  }
+
+  async ignoreDistrictIncident(id: string) {
+    if (this.state.gameStatus !== "active") {
+      throw new Error("GAME_FINISHED");
+    }
+
+    const incident = this.districtIncidents.find(item => item.id === id);
+    if (!incident) {
+      throw new Error("UNKNOWN_DISTRICT_INCIDENT");
+    }
+    if (incident.status !== "active") {
+      throw new Error("DISTRICT_INCIDENT_NOT_ACTIVE");
+    }
+
+    const reputationDelta = -incident.ignoredPenalty;
+    this.applyDistrictIncidentReputationDelta(reputationDelta);
+    incident.status = "ignored";
+
+    await this.saveDistrictIncidents();
+    await this.persistState();
+    return {
+      incident: { ...incident },
+      effectiveness: 0,
+      reputationDelta,
+      partial: true,
+    };
+  }
+
+  async investDistrict(districtId: string, type: DistrictInvestmentType) {
+    if (this.state.gameStatus !== "active") {
+      throw new Error("GAME_FINISHED");
+    }
+
+    const district = DISTRICTS.find(item => item.id === districtId);
+    const investment = DISTRICT_INVESTMENTS.find(item => item.type === type);
+    if (!district) {
+      throw new Error("UNKNOWN_DISTRICT");
+    }
+    if (!investment) {
+      throw new Error("UNKNOWN_DISTRICT_INVESTMENT");
+    }
+    if (this.state.governmentBudget < investment.cost) {
+      throw new Error("NOT_ENOUGH_BUDGET");
+    }
+
+    const metrics = this.getDistrictMetrics(districtId) ?? district.metrics;
+    const currentValue = metrics[investment.targetMetric];
+    const nextValue = Math.round(clamp(currentValue + investment.metricDelta, 0, 100) * 10) / 10;
+    if (nextValue === currentValue) {
+      throw new Error("DISTRICT_METRIC_LIMIT_REACHED");
+    }
+
+    const overrides = {
+      ...(this.districtMetricOverrides.get(districtId) ?? {}),
+      [investment.targetMetric]: nextValue,
+    };
+    this.districtMetricOverrides.set(districtId, this.normalizeDistrictMetricOverrides(districtId, overrides));
+    this.state.governmentBudget = Math.max(0, this.state.governmentBudget - investment.cost);
+    this.districtInvestmentReputationDelta = {
+      residents: clamp(this.districtInvestmentReputationDelta.residents + investment.reputationEffect.residents, -20, 20),
+      business: clamp(this.districtInvestmentReputationDelta.business + investment.reputationEffect.business, -20, 20),
+      government: clamp(this.districtInvestmentReputationDelta.government + investment.reputationEffect.government, -20, 20),
+    };
+
+    await this.saveDistrictInvestments();
+    await this.persistState();
+
+    const updated = this.getDistrict(districtId);
+    if (!updated) {
+      throw new Error("UNKNOWN_DISTRICT");
+    }
+    return updated;
+  }
+
+  async createDistrictIncident(
+    districtId: string,
+    type: DistrictIncidentType,
+    severity = 25,
+    deadlineTicks = 48,
+  ) {
+    if (!DISTRICTS.some(district => district.id === districtId)) {
+      throw new Error("UNKNOWN_DISTRICT");
+    }
+
+    const incident = this.createDistrictIncidentRecord(districtId, type, severity, deadlineTicks);
+    this.districtIncidents.unshift(incident);
+    await this.saveDistrictIncidents();
+    return { ...incident };
+  }
+
+  async hireDistrictStaff(districtId: string, service: DistrictServiceType, count: number) {
+    if (this.state.gameStatus !== "active") {
+      throw new Error("GAME_FINISHED");
+    }
+
+    const hireCount = Math.max(1, Math.min(25, Math.floor(count)));
+    const district = getDistrictById(
+      districtId,
+      this.config.baseSalary,
+      this.getDistrictServiceSnapshot(),
+      this.getDistrictIncidentsByDistrict(),
+      this.districtMetricOverrides,
+    );
+    const serviceState = this.districtServices.get(districtId);
+    if (!district || !serviceState) {
+      throw new Error("UNKNOWN_DISTRICT");
+    }
+
+    const hireCost = Math.round(hireCount * this.config.baseSalary * 1.1);
+    if (this.state.governmentBudget < hireCost) {
+      throw new Error("NOT_ENOUGH_BUDGET");
+    }
+
+    const candidates = Array.from(this.agents.values())
+      .filter(agent =>
+        !agent.isRetired &&
+        agent.age >= 18 &&
+        agent.age <= 65 &&
+        agent.employerId == null &&
+        agent.jailedUntilTick == null &&
+        !this.isDistrictServiceAgent(agent.id) &&
+        this.getResidentDistrict(agent.id) === district.name
+      )
+      .sort((a, b) => a.money - b.money || b.ambition - a.ambition);
+
+    if (candidates.length < hireCount) {
+      throw new Error("NOT_ENOUGH_UNEMPLOYED_CANDIDATES");
+    }
+
+    const hiredAgents = candidates.slice(0, hireCount);
+    this.state.governmentBudget = Math.max(0, this.state.governmentBudget - hireCost);
+    serviceState.hiringQueue.push({
+      service,
+      count: hiredAgents.length,
+      ticksRemaining: 3,
+      agentIds: hiredAgents.map(agent => agent.id),
+    });
+
+    for (const agent of hiredAgents) {
+      agent.currentAction = "service_training";
+      agent.needs.financialSafety = clamp(agent.needs.financialSafety + rand(2, 4));
+      agent.jobHistory = [...agent.jobHistory, {
+        tick: this.state.tick,
+        event: "hired",
+        businessId: null,
+        businessName: `${this.serviceLabel(service)} · ${district.name} (стажировка)`,
+      }];
+    }
+
+    await this.persistState();
+    await this.saveDistrictServices();
+    return this.getDistrict(districtId);
+  }
+
   async issueDailyDecision(decisionId: string) {
     const definition = DAILY_DECISION_MAP.get(decisionId);
     if (!definition) {
@@ -6135,8 +6954,8 @@ class SimulationEngine {
     const agents = Array.from(this.agents.values());
     const total = agents.length;
 
-    const employed = agents.filter(a => a.employerId != null && !a.isRetired).length;
-    const unemployed = agents.filter(a => a.employerId == null && !a.isRetired).length;
+    const employed = agents.filter(a => (a.employerId != null || this.isDistrictServiceAgent(a.id)) && !a.isRetired).length;
+    const unemployed = agents.filter(a => a.employerId == null && !this.isDistrictServiceAgent(a.id) && !a.isRetired).length;
     const retired = agents.filter(a => !!a.isRetired).length;
 
     const youth  = agents.filter(a => a.age <= 30).length;
@@ -6173,7 +6992,7 @@ class SimulationEngine {
       if (groupBy === "personality") return a.personality;
       if (groupBy === "employment") {
         if (a.isRetired) return "Пенсионеры";
-        if (a.employerId != null) return "Работающие";
+        if (a.employerId != null || this.isDistrictServiceAgent(a.id)) return "Работающие";
         return "Безработные";
       }
       if (a.age <= 30) return "18–30 (молодёжь)";
@@ -6195,7 +7014,7 @@ class SimulationEngine {
       const avgMood  = members.reduce((s, a) => s + a.mood, 0) / count;
       const avgMoney = members.reduce((s, a) => s + a.money, 0) / count;
       const avgAge   = members.reduce((s, a) => s + a.age, 0) / count;
-      const employedCount = members.filter(a => a.employerId != null && !a.isRetired).length;
+      const employedCount = members.filter(a => (a.employerId != null || this.isDistrictServiceAgent(a.id)) && !a.isRetired).length;
       const actionFreq: Record<string, number> = {};
       for (const a of members) actionFreq[a.currentAction] = (actionFreq[a.currentAction] ?? 0) + 1;
       const topAction = Object.entries(actionFreq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "idle";
@@ -6384,7 +7203,7 @@ class SimulationEngine {
 
   getGovernment() {
     const workingAge = Array.from(this.agents.values()).filter(a => !a.isRetired && a.age >= 18 && a.age <= 65);
-    const unemployed = workingAge.filter(a => a.employerId == null);
+    const unemployed = workingAge.filter(a => a.employerId == null && !this.isDistrictServiceAgent(a.id));
     const unemploymentRate = workingAge.length > 0 ? unemployed.length / workingAge.length : 0;
     return {
       budget: Math.round(this.state.governmentBudget * 100) / 100,
@@ -6450,7 +7269,7 @@ class SimulationEngine {
         totalSupply: Math.round(totalSupply),
       };
     }
-    const employed = agents.filter(a => a.employerId != null);
+    const employed = agents.filter(a => a.employerId != null || this.isDistrictServiceAgent(a.id));
     const avgMood = agents.reduce((s, a) => s + a.mood, 0) / agents.length;
     const avgWealth = agents.reduce((s, a) => s + a.money, 0) / agents.length;
     const avgHealth = agents.reduce((s, a) => s + a.needs.health, 0) / agents.length;

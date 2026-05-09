@@ -956,6 +956,418 @@ export const ProcessResidentRequestResponse = zod.object({
 });
 
 /**
+ * @summary Get permanent district list
+ */
+export const ListDistrictsResponseItem = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  category: zod.enum(["society", "economy", "government"]),
+  mapX: zod.string(),
+  mapY: zod.string(),
+  boundaryPoints: zod.string(),
+  metrics: zod.object({
+    safety: zod.number().describe("Public safety, 0-100"),
+    comfort: zod.number().describe("Everyday comfort, 0-100"),
+    accidentRisk: zod.number().describe("Incident and failure risk, 0-100"),
+    mayorReputationResidents: zod
+      .number()
+      .describe("Mayor reputation among district residents, 0-100"),
+    businessTrust: zod
+      .number()
+      .describe("Business trust in the district, 0-100"),
+    poverty: zod.number().describe("Poverty level, 0-100"),
+    infrastructure: zod.number().describe("Infrastructure condition, 0-100"),
+  }),
+  services: zod.object({
+    utilityWorkers: zod.number(),
+    policeOfficers: zod.number(),
+    firefighters: zod.number(),
+    hiringQueue: zod.array(
+      zod.object({
+        service: zod.enum(["utility", "police", "fire"]),
+        count: zod.number(),
+        ticksRemaining: zod.number(),
+      }),
+    ),
+    ticksUntilNextStaff: zod.number().nullable(),
+    expenses: zod.object({
+      utility: zod.number(),
+      police: zod.number(),
+      fire: zod.number(),
+      salaries: zod.number(),
+      inventory: zod.number(),
+      total: zod.number(),
+    }),
+  }),
+  incidents: zod.array(
+    zod.object({
+      id: zod.string(),
+      districtId: zod.string(),
+      type: zod.enum(["fire", "protest", "utility_failure", "staff_quit"]),
+      status: zod.enum(["active", "resolved", "ignored", "expired"]),
+      createdTick: zod.number(),
+      createdDay: zod.number(),
+      deadlineTick: zod.number(),
+      deadlineDay: zod.number(),
+      severity: zod.number(),
+      requiredService: zod.union([
+        zod.enum(["utility", "police", "fire"]),
+        zod.null(),
+      ]),
+      basePenalty: zod.number(),
+      ignoredPenalty: zod.number(),
+    }),
+  ),
+});
+export const ListDistrictsResponse = zod.array(ListDistrictsResponseItem);
+
+/**
+ * @summary Get district by id
+ */
+export const GetDistrictParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetDistrictResponse = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  category: zod.enum(["society", "economy", "government"]),
+  mapX: zod.string(),
+  mapY: zod.string(),
+  boundaryPoints: zod.string(),
+  metrics: zod.object({
+    safety: zod.number().describe("Public safety, 0-100"),
+    comfort: zod.number().describe("Everyday comfort, 0-100"),
+    accidentRisk: zod.number().describe("Incident and failure risk, 0-100"),
+    mayorReputationResidents: zod
+      .number()
+      .describe("Mayor reputation among district residents, 0-100"),
+    businessTrust: zod
+      .number()
+      .describe("Business trust in the district, 0-100"),
+    poverty: zod.number().describe("Poverty level, 0-100"),
+    infrastructure: zod.number().describe("Infrastructure condition, 0-100"),
+  }),
+  services: zod.object({
+    utilityWorkers: zod.number(),
+    policeOfficers: zod.number(),
+    firefighters: zod.number(),
+    hiringQueue: zod.array(
+      zod.object({
+        service: zod.enum(["utility", "police", "fire"]),
+        count: zod.number(),
+        ticksRemaining: zod.number(),
+      }),
+    ),
+    ticksUntilNextStaff: zod.number().nullable(),
+    expenses: zod.object({
+      utility: zod.number(),
+      police: zod.number(),
+      fire: zod.number(),
+      salaries: zod.number(),
+      inventory: zod.number(),
+      total: zod.number(),
+    }),
+  }),
+  incidents: zod.array(
+    zod.object({
+      id: zod.string(),
+      districtId: zod.string(),
+      type: zod.enum(["fire", "protest", "utility_failure", "staff_quit"]),
+      status: zod.enum(["active", "resolved", "ignored", "expired"]),
+      createdTick: zod.number(),
+      createdDay: zod.number(),
+      deadlineTick: zod.number(),
+      deadlineDay: zod.number(),
+      severity: zod.number(),
+      requiredService: zod.union([
+        zod.enum(["utility", "police", "fire"]),
+        zod.null(),
+      ]),
+      basePenalty: zod.number(),
+      ignoredPenalty: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Hire unemployed residents into a district service
+ */
+export const HireDistrictStaffParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const hireDistrictStaffBodyCountDefault = 1;
+export const hireDistrictStaffBodyCountMax = 25;
+
+export const HireDistrictStaffBody = zod.object({
+  service: zod.enum(["utility", "police", "fire"]),
+  count: zod
+    .number()
+    .min(1)
+    .max(hireDistrictStaffBodyCountMax)
+    .default(hireDistrictStaffBodyCountDefault),
+});
+
+export const HireDistrictStaffResponse = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  category: zod.enum(["society", "economy", "government"]),
+  mapX: zod.string(),
+  mapY: zod.string(),
+  boundaryPoints: zod.string(),
+  metrics: zod.object({
+    safety: zod.number().describe("Public safety, 0-100"),
+    comfort: zod.number().describe("Everyday comfort, 0-100"),
+    accidentRisk: zod.number().describe("Incident and failure risk, 0-100"),
+    mayorReputationResidents: zod
+      .number()
+      .describe("Mayor reputation among district residents, 0-100"),
+    businessTrust: zod
+      .number()
+      .describe("Business trust in the district, 0-100"),
+    poverty: zod.number().describe("Poverty level, 0-100"),
+    infrastructure: zod.number().describe("Infrastructure condition, 0-100"),
+  }),
+  services: zod.object({
+    utilityWorkers: zod.number(),
+    policeOfficers: zod.number(),
+    firefighters: zod.number(),
+    hiringQueue: zod.array(
+      zod.object({
+        service: zod.enum(["utility", "police", "fire"]),
+        count: zod.number(),
+        ticksRemaining: zod.number(),
+      }),
+    ),
+    ticksUntilNextStaff: zod.number().nullable(),
+    expenses: zod.object({
+      utility: zod.number(),
+      police: zod.number(),
+      fire: zod.number(),
+      salaries: zod.number(),
+      inventory: zod.number(),
+      total: zod.number(),
+    }),
+  }),
+  incidents: zod.array(
+    zod.object({
+      id: zod.string(),
+      districtId: zod.string(),
+      type: zod.enum(["fire", "protest", "utility_failure", "staff_quit"]),
+      status: zod.enum(["active", "resolved", "ignored", "expired"]),
+      createdTick: zod.number(),
+      createdDay: zod.number(),
+      deadlineTick: zod.number(),
+      deadlineDay: zod.number(),
+      severity: zod.number(),
+      requiredService: zod.union([
+        zod.enum(["utility", "police", "fire"]),
+        zod.null(),
+      ]),
+      basePenalty: zod.number(),
+      ignoredPenalty: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Invest in a district metric
+ */
+export const InvestDistrictParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const InvestDistrictBody = zod.object({
+  type: zod.enum([
+    "beautification",
+    "safety",
+    "infrastructure",
+    "business_zone",
+    "social_support",
+  ]),
+});
+
+export const InvestDistrictResponse = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  category: zod.enum(["society", "economy", "government"]),
+  mapX: zod.string(),
+  mapY: zod.string(),
+  boundaryPoints: zod.string(),
+  metrics: zod.object({
+    safety: zod.number().describe("Public safety, 0-100"),
+    comfort: zod.number().describe("Everyday comfort, 0-100"),
+    accidentRisk: zod.number().describe("Incident and failure risk, 0-100"),
+    mayorReputationResidents: zod
+      .number()
+      .describe("Mayor reputation among district residents, 0-100"),
+    businessTrust: zod
+      .number()
+      .describe("Business trust in the district, 0-100"),
+    poverty: zod.number().describe("Poverty level, 0-100"),
+    infrastructure: zod.number().describe("Infrastructure condition, 0-100"),
+  }),
+  services: zod.object({
+    utilityWorkers: zod.number(),
+    policeOfficers: zod.number(),
+    firefighters: zod.number(),
+    hiringQueue: zod.array(
+      zod.object({
+        service: zod.enum(["utility", "police", "fire"]),
+        count: zod.number(),
+        ticksRemaining: zod.number(),
+      }),
+    ),
+    ticksUntilNextStaff: zod.number().nullable(),
+    expenses: zod.object({
+      utility: zod.number(),
+      police: zod.number(),
+      fire: zod.number(),
+      salaries: zod.number(),
+      inventory: zod.number(),
+      total: zod.number(),
+    }),
+  }),
+  incidents: zod.array(
+    zod.object({
+      id: zod.string(),
+      districtId: zod.string(),
+      type: zod.enum(["fire", "protest", "utility_failure", "staff_quit"]),
+      status: zod.enum(["active", "resolved", "ignored", "expired"]),
+      createdTick: zod.number(),
+      createdDay: zod.number(),
+      deadlineTick: zod.number(),
+      deadlineDay: zod.number(),
+      severity: zod.number(),
+      requiredService: zod.union([
+        zod.enum(["utility", "police", "fire"]),
+        zod.null(),
+      ]),
+      basePenalty: zod.number(),
+      ignoredPenalty: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get district incidents
+ */
+export const ListDistrictIncidentsQueryParams = zod.object({
+  status: zod.enum(["active", "resolved", "ignored", "expired"]).optional(),
+});
+
+export const ListDistrictIncidentsResponseItem = zod.object({
+  id: zod.string(),
+  districtId: zod.string(),
+  type: zod.enum(["fire", "protest", "utility_failure", "staff_quit"]),
+  status: zod.enum(["active", "resolved", "ignored", "expired"]),
+  createdTick: zod.number(),
+  createdDay: zod.number(),
+  deadlineTick: zod.number(),
+  deadlineDay: zod.number(),
+  severity: zod.number(),
+  requiredService: zod.union([
+    zod.enum(["utility", "police", "fire"]),
+    zod.null(),
+  ]),
+  basePenalty: zod.number(),
+  ignoredPenalty: zod.number(),
+});
+export const ListDistrictIncidentsResponse = zod.array(
+  ListDistrictIncidentsResponseItem,
+);
+
+/**
+ * @summary Get district incident by id
+ */
+export const GetDistrictIncidentParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetDistrictIncidentResponse = zod.object({
+  id: zod.string(),
+  districtId: zod.string(),
+  type: zod.enum(["fire", "protest", "utility_failure", "staff_quit"]),
+  status: zod.enum(["active", "resolved", "ignored", "expired"]),
+  createdTick: zod.number(),
+  createdDay: zod.number(),
+  deadlineTick: zod.number(),
+  deadlineDay: zod.number(),
+  severity: zod.number(),
+  requiredService: zod.union([
+    zod.enum(["utility", "police", "fire"]),
+    zod.null(),
+  ]),
+  basePenalty: zod.number(),
+  ignoredPenalty: zod.number(),
+});
+
+/**
+ * @summary Respond to an active district incident
+ */
+export const RespondDistrictIncidentParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const RespondDistrictIncidentResponse = zod.object({
+  incident: zod.object({
+    id: zod.string(),
+    districtId: zod.string(),
+    type: zod.enum(["fire", "protest", "utility_failure", "staff_quit"]),
+    status: zod.enum(["active", "resolved", "ignored", "expired"]),
+    createdTick: zod.number(),
+    createdDay: zod.number(),
+    deadlineTick: zod.number(),
+    deadlineDay: zod.number(),
+    severity: zod.number(),
+    requiredService: zod.union([
+      zod.enum(["utility", "police", "fire"]),
+      zod.null(),
+    ]),
+    basePenalty: zod.number(),
+    ignoredPenalty: zod.number(),
+  }),
+  effectiveness: zod.number().describe("Response effectiveness, 0-1"),
+  reputationDelta: zod.number().describe("Applied residents reputation delta"),
+  partial: zod
+    .boolean()
+    .describe("True when service staff was below the district baseline"),
+});
+
+/**
+ * @summary Ignore an active district incident
+ */
+export const IgnoreDistrictIncidentParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const IgnoreDistrictIncidentResponse = zod.object({
+  incident: zod.object({
+    id: zod.string(),
+    districtId: zod.string(),
+    type: zod.enum(["fire", "protest", "utility_failure", "staff_quit"]),
+    status: zod.enum(["active", "resolved", "ignored", "expired"]),
+    createdTick: zod.number(),
+    createdDay: zod.number(),
+    deadlineTick: zod.number(),
+    deadlineDay: zod.number(),
+    severity: zod.number(),
+    requiredService: zod.union([
+      zod.enum(["utility", "police", "fire"]),
+      zod.null(),
+    ]),
+    basePenalty: zod.number(),
+    ignoredPenalty: zod.number(),
+  }),
+  effectiveness: zod.number().describe("Response effectiveness, 0-1"),
+  reputationDelta: zod.number().describe("Applied residents reputation delta"),
+  partial: zod
+    .boolean()
+    .describe("True when service staff was below the district baseline"),
+});
+
+/**
  * @summary Get paginated list of agents
  */
 export const listAgentsQueryPageDefault = 1;

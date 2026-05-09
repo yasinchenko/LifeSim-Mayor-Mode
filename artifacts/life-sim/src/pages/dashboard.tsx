@@ -7,20 +7,30 @@ import {
   getGetSimulationStateQueryKey,
   getGetStatsHistoryQueryKey,
   getGetStatsSummaryQueryKey,
+  getGetGovernmentQueryKey,
+  getListDistrictsQueryKey,
   useGetDailyDecisions,
   useGetResidentRequests,
   useGetSimulationState,
   useGetStatsHistory,
   useGetStatsSummary,
+  useListDistricts,
   useContinueSimulation,
   useIssueDailyDecision,
+  useHireDistrictStaff,
+  useIgnoreDistrictIncident,
+  useInvestDistrict,
   useProcessResidentRequest,
+  useRespondDistrictIncident,
   useStartSimulation,
   useStopSimulation,
 } from "@workspace/api-client-react";
 import type {
   DailyDecision,
   DailyDecisionsState,
+  District,
+  DistrictInvestmentType,
+  DistrictIncident,
   ResidentRequest,
   ResidentRequestsState,
   SimulationState,
@@ -97,6 +107,19 @@ const CITIZEN_PORTRAITS = {
 
 type CivicCategory = "society" | "economy" | "government";
 
+const DISTRICT_INVESTMENT_OPTIONS: Array<{
+  type: DistrictInvestmentType;
+  label: string;
+  cost: number;
+  metric: string;
+}> = [
+  { type: "beautification", label: "Благоустройство", cost: 4200, metric: "комфорт" },
+  { type: "safety", label: "Безопасность", cost: 5200, metric: "безопасность" },
+  { type: "infrastructure", label: "Инфраструктура", cost: 6400, metric: "инфраструктура" },
+  { type: "business_zone", label: "Бизнес-зона", cost: 5600, metric: "доверие бизнеса" },
+  { type: "social_support", label: "Соцподдержка", cost: 4600, metric: "бедность" },
+];
+
 const CIVIC_CATEGORY_STYLES: Record<CivicCategory, {
   label: string;
   color: string;
@@ -126,34 +149,6 @@ const CIVIC_CATEGORY_STYLES: Record<CivicCategory, {
     text: "hsl(232,72%,84%)",
   },
 };
-
-const DISTRICT_BOUNDARIES = [
-  {
-    id: "residential",
-    points: "1480,360 1875,345 2155,500 2065,720 1610,805 1345,625",
-    category: "society",
-  },
-  {
-    id: "city-hall",
-    points: "820,515 1095,425 1335,555 1355,730 1195,865 905,800 740,665",
-    category: "government",
-  },
-  {
-    id: "business",
-    points: "2110,145 2790,145 2865,360 2685,555 2240,505 2045,335",
-    category: "economy",
-  },
-  {
-    id: "market",
-    points: "675,875 1065,855 1385,930 1520,1110 1295,1240 820,1165 565,1005",
-    category: "economy",
-  },
-  {
-    id: "services",
-    points: "45,250 445,165 755,330 705,580 525,805 170,790 35,600",
-    category: "society",
-  },
-] as const satisfies readonly { id: string; points: string; category: CivicCategory }[];
 
 const SECTION_LINKS = [
   { href: "/agents", label: "Жители", icon: Users },
@@ -215,6 +210,27 @@ function toneColor(tone: "good" | "warn" | "bad") {
   if (tone === "good") return "hsl(156,52%,70%)";
   if (tone === "warn") return "hsl(39,78%,72%)";
   return "hsl(351,72%,75%)";
+}
+
+function incidentTypeLabel(type: DistrictIncident["type"]) {
+  if (type === "fire") return "Пожар";
+  if (type === "protest") return "Протест";
+  if (type === "utility_failure") return "Коммунальная авария";
+  return "Уход сотрудника";
+}
+
+function incidentStatusLabel(status: DistrictIncident["status"]) {
+  if (status === "active") return "Активно";
+  if (status === "resolved") return "Решено";
+  if (status === "ignored") return "Проигнорировано";
+  return "Истекло";
+}
+
+function serviceTypeLabel(service: DistrictIncident["requiredService"]) {
+  if (service === "utility") return "коммунальная";
+  if (service === "police") return "полиция";
+  if (service === "fire") return "пожарные";
+  return "не требуется";
 }
 
 function categoryStyle(category: CivicCategory) {
@@ -328,6 +344,63 @@ export default function Dashboard() {
     query: {
       queryKey: getGetResidentRequestsQueryKey(),
       refetchInterval: running ? 5000 : 30000,
+    },
+  });
+
+  const { data: districts } = useListDistricts({
+    query: {
+      queryKey: getListDistrictsQueryKey(),
+      refetchInterval: running ? 3000 : 30000,
+    },
+  });
+
+  const hireDistrictStaffMutation = useHireDistrictStaff({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListDistrictsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetSimulationStateQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetGovernmentQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetStatsSummaryQueryKey() });
+        toast.success("Сотрудник поставлен в очередь найма");
+      },
+      onError: err => toast.error(`Не удалось нанять сотрудника: ${getApiErrorMessage(err)}`),
+    },
+  });
+
+  const investDistrictMutation = useInvestDistrict({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListDistrictsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetSimulationStateQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetGovernmentQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetStatsSummaryQueryKey() });
+        toast.success("Инвестиция применена");
+      },
+      onError: err => toast.error(`Не удалось инвестировать: ${getApiErrorMessage(err)}`),
+    },
+  });
+
+  const respondDistrictIncidentMutation = useRespondDistrictIncident({
+    mutation: {
+      onSuccess: data => {
+        qc.invalidateQueries({ queryKey: getListDistrictsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetSimulationStateQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetStatsSummaryQueryKey() });
+        toast.success(data.partial ? "Службы отреагировали частично" : "Происшествие решено");
+      },
+      onError: err => toast.error(`Не удалось отреагировать: ${getApiErrorMessage(err)}`),
+    },
+  });
+
+  const ignoreDistrictIncidentMutation = useIgnoreDistrictIncident({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListDistrictsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetSimulationStateQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetStatsSummaryQueryKey() });
+        toast.info("Происшествие проигнорировано");
+      },
+      onError: err => toast.error(`Не удалось игнорировать происшествие: ${getApiErrorMessage(err)}`),
     },
   });
 
@@ -487,6 +560,17 @@ export default function Dashboard() {
             summary={summary}
             decisions={decisions}
             health={cityHealth}
+            districts={districts}
+            isBusy={
+              hireDistrictStaffMutation.isPending ||
+              investDistrictMutation.isPending ||
+              respondDistrictIncidentMutation.isPending ||
+              ignoreDistrictIncidentMutation.isPending
+            }
+            onHire={(districtId, service) => hireDistrictStaffMutation.mutate({ id: districtId, data: { service, count: 1 } })}
+            onInvest={(districtId, type) => investDistrictMutation.mutate({ id: districtId, data: { type } })}
+            onRespondIncident={(incidentId) => respondDistrictIncidentMutation.mutate({ id: incidentId })}
+            onIgnoreIncident={(incidentId) => ignoreDistrictIncidentMutation.mutate({ id: incidentId })}
           />
           <RightRequestsPanel
             state={state}
@@ -731,17 +815,60 @@ function CityMapStage({
   summary,
   decisions,
   health,
+  districts: districtModels,
+  isBusy,
+  onHire,
+  onInvest,
+  onRespondIncident,
+  onIgnoreIncident,
 }: {
   state: SimulationState;
   summary?: StatsSummary;
   decisions?: DailyDecisionsState;
   health: { society: number; economy: number; government: number };
+  districts?: District[];
+  isBusy: boolean;
+  onHire: (districtId: string, service: "utility" | "police" | "fire") => void;
+  onInvest: (districtId: string, type: DistrictInvestmentType) => void;
+  onRespondIncident: (incidentId: string) => void;
+  onIgnoreIncident: (incidentId: string) => void;
 }) {
-  const districts = useMemo(() => buildDistricts(state, summary, decisions, health), [state, summary, decisions, health]);
+  const districts = useMemo(() => buildDistricts(districtModels, state, summary, decisions, health), [districtModels, state, summary, decisions, health]);
   const [selectedId, setSelectedId] = useState("city-hall");
   const selected = districts.find(district => district.id === selectedId) ?? districts[0];
-  const SelectedIcon = selected.icon;
   const activeMapPhase = mapPhaseForHour(state.gameHour);
+
+  if (!selected) {
+    return (
+      <section className="relative min-h-[560px] xl:min-h-0 rounded border border-border/70 bg-black/25 overflow-hidden">
+        <img
+          src={MAP_DAY_ASSET}
+          alt="Карта города"
+          className="absolute inset-0 h-full w-full object-cover opacity-80"
+          draggable={false}
+        />
+        <div className="absolute inset-0 bg-black/45" />
+        <div className="absolute inset-0 grid place-items-center px-4">
+          <div className="rounded border border-white/15 bg-black/58 backdrop-blur px-4 py-3 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Городская карта</p>
+            <p className="text-sm font-semibold">Районы загружаются</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const SelectedIcon = selected.icon;
+  const serviceState = selected.services ?? {
+    utilityWorkers: 0,
+    policeOfficers: 0,
+    firefighters: 0,
+    hiringQueue: [],
+    ticksUntilNextStaff: null,
+    expenses: { utility: 0, police: 0, fire: 0, salaries: 0, inventory: 0, total: 0 },
+  };
+  const queueCount = serviceState.hiringQueue.reduce((sum, item) => sum + item.count, 0);
+  const activeIncidents = selected.incidents.filter(incident => incident.status === "active");
 
   return (
     <section className="relative min-h-[560px] xl:min-h-0 rounded border border-border/70 bg-black/25 overflow-hidden">
@@ -759,12 +886,13 @@ function CityMapStage({
         />
       ))}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,transparent_48%,rgba(47,57,68,0.42)_94%)]" />
-      <DistrictBoundaryOverlay selectedId={selected.id} />
+      <DistrictBoundaryOverlay districts={districts} selectedId={selected.id} />
 
       {districts.map(district => {
         const Icon = district.icon;
         const active = district.id === selected.id;
         const category = categoryStyle(district.category);
+        const activeIncidentCount = district.incidents.filter(incident => incident.status === "active").length;
         return (
           <button
             key={district.id}
@@ -784,7 +912,9 @@ function CityMapStage({
               <Icon className="w-4 h-4 shrink-0" style={{ color: category.color }} />
               <div>
                 <p className="text-[10px] font-semibold leading-none whitespace-nowrap">{district.name}</p>
-                <p className="text-[9px] text-muted-foreground mt-1">{district.health}</p>
+                <p className="text-[9px] text-muted-foreground mt-1">
+                  {district.health}{activeIncidentCount > 0 ? ` / событий: ${activeIncidentCount}` : ""}
+                </p>
               </div>
             </div>
           </button>
@@ -822,6 +952,86 @@ function CityMapStage({
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{selected.detail}</p>
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-2 text-[11px]">
+              <DistrictServiceStat label="Коммунальщики" value={serviceState.utilityWorkers} />
+              <DistrictServiceStat label="Полиция" value={serviceState.policeOfficers} />
+              <DistrictServiceStat label="Пожарные" value={serviceState.firefighters} />
+              <DistrictServiceStat label="Очередь найма" value={queueCount} />
+              <DistrictServiceStat
+                label="Расходы"
+                value={Math.round(serviceState.expenses.total).toLocaleString()}
+                suffix="/тик"
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              До выхода новых сотрудников: {serviceState.ticksUntilNextStaff ?? "нет активного найма"}.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <DistrictHireButton disabled={isBusy} label="+ коммунальщик" onClick={() => onHire(selected.id, "utility")} />
+              <DistrictHireButton disabled={isBusy} label="+ полицейский" onClick={() => onHire(selected.id, "police")} />
+              <DistrictHireButton disabled={isBusy} label="+ пожарный" onClick={() => onHire(selected.id, "fire")} />
+            </div>
+            <div className="mt-3 rounded border border-primary/15 bg-primary/[0.05] p-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Инвестиции района</p>
+              <div className="mt-2 grid grid-cols-2 lg:grid-cols-5 gap-1.5">
+                {DISTRICT_INVESTMENT_OPTIONS.map(investment => (
+                  <button
+                    key={investment.type}
+                    type="button"
+                    disabled={isBusy || state.governmentBudget < investment.cost}
+                    onClick={() => onInvest(selected.id, investment.type)}
+                    className="rounded border border-primary/25 bg-primary/10 px-2 py-1.5 text-left text-[10px] hover:bg-primary/15 disabled:opacity-50"
+                    title={`${investment.metric}: ${investment.cost.toLocaleString("ru-RU")}`}
+                  >
+                    <span className="block font-semibold leading-tight">{investment.label}</span>
+                    <span className="block text-muted-foreground mt-0.5">{investment.cost.toLocaleString("ru-RU")}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 rounded border border-white/10 bg-white/[0.04] p-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Активные происшествия</p>
+                <span className="rounded bg-destructive/12 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+                  {activeIncidents.length}
+                </span>
+              </div>
+              {activeIncidents.length > 0 ? (
+                <div className="mt-2 grid sm:grid-cols-2 gap-2">
+                  {activeIncidents.slice(0, 4).map(incident => (
+                    <div key={incident.id} className="rounded border border-destructive/25 bg-destructive/8 px-2 py-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-semibold">{incidentTypeLabel(incident.type)}</span>
+                        <span className="text-[10px] text-muted-foreground">{incidentStatusLabel(incident.status)}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Сила {incident.severity} / срок день {incident.deadlineDay} / служба: {serviceTypeLabel(incident.requiredService)}
+                      </p>
+                      <div className="mt-1.5 flex gap-1.5">
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => onRespondIncident(incident.id)}
+                          className="inline-flex items-center justify-center rounded bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground disabled:opacity-50"
+                        >
+                          Отреагировать
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => onIgnoreIncident(incident.id)}
+                          className="inline-flex items-center justify-center rounded border border-white/15 bg-white/8 px-2 py-1 text-[10px] text-muted-foreground disabled:opacity-50"
+                        >
+                          Игнорировать
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground mt-1">Активных происшествий нет.</p>
+              )}
+            </div>
           </div>
           <div className="ml-auto text-right shrink-0">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Индекс района</p>
@@ -834,7 +1044,7 @@ function CityMapStage({
   );
 }
 
-function DistrictBoundaryOverlay({ selectedId }: { selectedId: string }) {
+function DistrictBoundaryOverlay({ districts, selectedId }: { districts: ReturnType<typeof buildDistricts>; selectedId: string }) {
   return (
     <svg
       className="pointer-events-none absolute inset-0 h-full w-full"
@@ -851,13 +1061,13 @@ function DistrictBoundaryOverlay({ selectedId }: { selectedId: string }) {
           </feMerge>
         </filter>
       </defs>
-      {DISTRICT_BOUNDARIES.map(boundary => {
+      {districts.map(boundary => {
         const active = boundary.id === selectedId;
         const category = categoryStyle(boundary.category);
         return (
           <g key={boundary.id}>
             <polygon
-              points={boundary.points}
+              points={boundary.boundaryPoints}
               fill={active ? category.color : "transparent"}
               fillOpacity={active ? 0.14 : 0}
               stroke="rgba(0,0,0,0.72)"
@@ -867,7 +1077,7 @@ function DistrictBoundaryOverlay({ selectedId }: { selectedId: string }) {
               vectorEffect="non-scaling-stroke"
             />
             <polygon
-              points={boundary.points}
+              points={boundary.boundaryPoints}
               fill="transparent"
               stroke={category.color}
               strokeOpacity={active ? 0.9 : 0.34}
@@ -881,6 +1091,30 @@ function DistrictBoundaryOverlay({ selectedId }: { selectedId: string }) {
         );
       })}
     </svg>
+  );
+}
+
+function DistrictServiceStat({ label, value, suffix }: { label: string; value: number | string; suffix?: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[9px] uppercase tracking-widest text-muted-foreground truncate">{label}</p>
+      <p className="text-xs font-semibold tabular-nums text-foreground">
+        {value}{suffix && <span className="text-[10px] font-normal text-muted-foreground ml-0.5">{suffix}</span>}
+      </p>
+    </div>
+  );
+}
+
+function DistrictHireButton({ disabled, label, onClick }: { disabled: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded border border-primary/35 bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary transition-colors hover:bg-primary/18 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {label}
+    </button>
   );
 }
 
@@ -1104,72 +1338,65 @@ function FinalReportCard({
   );
 }
 function buildDistricts(
+  districtModels: District[] | undefined,
   state: SimulationState,
   summary: StatsSummary | undefined,
   decisions: DailyDecisionsState | undefined,
   health: { society: number; economy: number; government: number },
 ) {
+  if (!districtModels?.length) return [];
+
   const pressure = decisions?.factionPressure.pressureBySide ?? [];
   const residentsPressure = pressure.find(side => side.side === "residents")?.pressure ?? 30;
   const businessPressure = pressure.find(side => side.side === "business")?.pressure ?? 30;
 
-  return [
-    {
-      id: "residential",
-      name: "Кварталы",
-      role: "общество",
-      icon: Users,
-      category: "society" as const,
-      x: "60%",
-      y: "43%",
-      health: clamp(health.society - residentsPressure * 0.08),
-      detail: `Настроение ${state.avgMood.toFixed(1)}, здоровье ${summary?.avgHealth?.toFixed(1) ?? "—"}, доверие жителей ${state.reputationResidents.toFixed(0)}.`,
-    },
-    {
-      id: "city-hall",
-      name: "Ратуша",
-      role: "мандат",
-      icon: Landmark,
-      category: "government" as const,
-      x: "39%",
-      y: "48%",
-      health: health.government,
-      detail: `Прогресс цели ${state.goalProgress}%, власть ${state.reputationGovernment.toFixed(0)}, осталось ${state.daysRemaining} дней.`,
-    },
-    {
-      id: "business",
-      name: "Деловой район",
-      role: "экономика",
-      icon: Briefcase,
-      category: "economy" as const,
-      x: "83%",
-      y: "27%",
-      health: clamp(health.economy - businessPressure * 0.08),
-      detail: `ВВП ${Math.round(state.gdp / 1000)}K, безработица ${state.unemploymentRate.toFixed(1)}%, доверие бизнеса ${state.reputationBusiness.toFixed(0)}.`,
-    },
-    {
-      id: "market",
-      name: "Рынок",
-      role: "товары",
-      icon: CircleDollarSign,
-      category: "economy" as const,
-      x: "35%",
-      y: "62%",
-      health: clamp(55 + Math.min(35, Math.max(-30, (summary?.marketBalance ?? 0) / 1000))),
-      detail: `Баланс рынка ${summary?.marketBalance?.toLocaleString() ?? "—"}, популярный товар: ${summary?.mostPopularGood ?? "—"}.`,
-    },
-    {
-      id: "services",
-      name: "Службы",
-      role: "безопасность",
-      icon: Shield,
-      category: "society" as const,
-      x: "20%",
-      y: "56%",
-      health: clamp(((summary?.avgHealth ?? 55) + (summary?.avgSleep ?? 55) + state.reputationResidents) / 3),
-      detail: `Здоровье ${summary?.avgHealth?.toFixed(1) ?? "—"}, сон ${summary?.avgSleep?.toFixed(1) ?? "—"}, активных эффектов ${decisions?.activeEffects.length ?? 0}.`,
-    },
-  ];
+  const icons: Record<string, ElementType> = {
+    residential: Users,
+    "city-hall": Landmark,
+    business: Briefcase,
+    market: CircleDollarSign,
+    services: Shield,
+  };
+
+  return districtModels.map(district => {
+    const metrics = district.metrics;
+    const baseHealth = (
+      metrics.safety +
+      metrics.comfort +
+      metrics.mayorReputationResidents +
+      metrics.businessTrust +
+      metrics.infrastructure +
+      (100 - metrics.poverty) +
+      (100 - metrics.accidentRisk)
+    ) / 7;
+
+    const pressurePenalty =
+      district.category === "society"
+        ? residentsPressure * 0.08
+        : district.category === "economy"
+          ? businessPressure * 0.08
+          : 0;
+
+    const globalSignal =
+      district.id === "residential"
+        ? (state.avgMood + health.society + state.reputationResidents) / 3
+        : district.id === "city-hall"
+          ? health.government
+          : district.id === "business"
+            ? (health.economy + state.reputationBusiness) / 2
+            : district.id === "market"
+              ? 55 + Math.min(35, Math.max(-30, (summary?.marketBalance ?? 0) / 1000))
+              : ((summary?.avgHealth ?? 55) + (summary?.avgSleep ?? 55) + state.reputationResidents) / 3;
+
+    return {
+      ...district,
+      icon: icons[district.id] ?? MapPin,
+      x: district.mapX,
+      y: district.mapY,
+      health: clamp((baseHealth + globalSignal) / 2 - pressurePenalty),
+      detail: `Безопасность ${metrics.safety}, комфорт ${metrics.comfort}, аварийность ${metrics.accidentRisk}, репутация у жителей ${metrics.mayorReputationResidents}, доверие бизнеса ${metrics.businessTrust}, бедность ${metrics.poverty}, инфраструктура ${metrics.infrastructure}.`,
+    };
+  });
 }
 
 function PanelTitle({ icon: Icon, title, badge }: { icon: ElementType; title: string; badge?: string }) {

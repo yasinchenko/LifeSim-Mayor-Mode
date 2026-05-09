@@ -26,6 +26,8 @@ tags:
     description: Statistics operations
   - name: decisions
     description: Daily mayor decisions
+  - name: districts
+    description: District model operations
 paths:
   /healthz:
     get:
@@ -213,6 +215,239 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: Resident request cannot be processed now
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /districts:
+    get:
+      operationId: listDistricts
+      tags: [districts]
+      summary: Get permanent district list
+      responses:
+        "200":
+          description: List of districts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/District"
+
+  /districts/{id}:
+    get:
+      operationId: getDistrict
+      tags: [districts]
+      summary: Get district by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: District
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/District"
+        "404":
+          description: District not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /districts/{id}/hire:
+    post:
+      operationId: hireDistrictStaff
+      tags: [districts]
+      summary: Hire unemployed residents into a district service
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DistrictHireRequest"
+      responses:
+        "200":
+          description: Updated district
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/District"
+        "400":
+          description: Invalid hire payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: District not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Hire unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /districts/{id}/invest:
+    post:
+      operationId: investDistrict
+      tags: [districts]
+      summary: Invest in a district metric
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DistrictInvestmentRequest"
+      responses:
+        "200":
+          description: Updated district
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/District"
+        "400":
+          description: Invalid investment payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: District not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Investment unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /district-incidents:
+    get:
+      operationId: listDistrictIncidents
+      tags: [districts]
+      summary: Get district incidents
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/DistrictIncidentStatus"
+      responses:
+        "200":
+          description: List of district incidents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DistrictIncident"
+
+  /district-incidents/{id}:
+    get:
+      operationId: getDistrictIncident
+      tags: [districts]
+      summary: Get district incident by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: District incident
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DistrictIncident"
+        "404":
+          description: District incident not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /district-incidents/{id}/respond:
+    post:
+      operationId: respondDistrictIncident
+      tags: [districts]
+      summary: Respond to an active district incident
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: District incident response result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DistrictIncidentActionResponse"
+        "404":
+          description: District incident not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: District incident cannot be resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /district-incidents/{id}/ignore:
+    post:
+      operationId: ignoreDistrictIncident
+      tags: [districts]
+      summary: Ignore an active district incident
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: District incident ignore result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DistrictIncidentActionResponse"
+        "404":
+          description: District incident not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: District incident cannot be ignored
           content:
             application/json:
               schema:
@@ -410,6 +645,236 @@ components:
           type: string
       required:
         - status
+
+    DistrictMetrics:
+      type: object
+      properties:
+        safety:
+          type: number
+          description: Public safety, 0-100
+        comfort:
+          type: number
+          description: Everyday comfort, 0-100
+        accidentRisk:
+          type: number
+          description: Incident and failure risk, 0-100
+        mayorReputationResidents:
+          type: number
+          description: Mayor reputation among district residents, 0-100
+        businessTrust:
+          type: number
+          description: Business trust in the district, 0-100
+        poverty:
+          type: number
+          description: Poverty level, 0-100
+        infrastructure:
+          type: number
+          description: Infrastructure condition, 0-100
+      required:
+        - safety
+        - comfort
+        - accidentRisk
+        - mayorReputationResidents
+        - businessTrust
+        - poverty
+        - infrastructure
+
+    DistrictServiceType:
+      type: string
+      enum: [utility, police, fire]
+
+    DistrictInvestmentType:
+      type: string
+      enum: [beautification, safety, infrastructure, business_zone, social_support]
+
+    DistrictInvestmentRequest:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/DistrictInvestmentType"
+      required:
+        - type
+
+    DistrictIncidentType:
+      type: string
+      enum: [fire, protest, utility_failure, staff_quit]
+
+    DistrictIncidentStatus:
+      type: string
+      enum: [active, resolved, ignored, expired]
+
+    DistrictIncident:
+      type: object
+      properties:
+        id:
+          type: string
+        districtId:
+          type: string
+        type:
+          $ref: "#/components/schemas/DistrictIncidentType"
+        status:
+          $ref: "#/components/schemas/DistrictIncidentStatus"
+        createdTick:
+          type: integer
+        createdDay:
+          type: integer
+        deadlineTick:
+          type: integer
+        deadlineDay:
+          type: integer
+        severity:
+          type: number
+        requiredService:
+          oneOf:
+            - $ref: "#/components/schemas/DistrictServiceType"
+            - type: "null"
+        basePenalty:
+          type: number
+        ignoredPenalty:
+          type: number
+      required:
+        - id
+        - districtId
+        - type
+        - status
+        - createdTick
+        - createdDay
+        - deadlineTick
+        - deadlineDay
+        - severity
+        - requiredService
+        - basePenalty
+        - ignoredPenalty
+
+    DistrictIncidentActionResponse:
+      type: object
+      properties:
+        incident:
+          $ref: "#/components/schemas/DistrictIncident"
+        effectiveness:
+          type: number
+          description: Response effectiveness, 0-1
+        reputationDelta:
+          type: number
+          description: Applied residents reputation delta
+        partial:
+          type: boolean
+          description: True when service staff was below the district baseline
+      required:
+        - incident
+        - effectiveness
+        - reputationDelta
+        - partial
+
+    DistrictHiringQueueItem:
+      type: object
+      properties:
+        service:
+          $ref: "#/components/schemas/DistrictServiceType"
+        count:
+          type: integer
+        ticksRemaining:
+          type: integer
+      required:
+        - service
+        - count
+        - ticksRemaining
+
+    DistrictServiceExpenses:
+      type: object
+      properties:
+        utility:
+          type: number
+        police:
+          type: number
+        fire:
+          type: number
+        salaries:
+          type: number
+        inventory:
+          type: number
+        total:
+          type: number
+      required:
+        - utility
+        - police
+        - fire
+        - salaries
+        - inventory
+        - total
+
+    DistrictServiceState:
+      type: object
+      properties:
+        utilityWorkers:
+          type: integer
+        policeOfficers:
+          type: integer
+        firefighters:
+          type: integer
+        hiringQueue:
+          type: array
+          items:
+            $ref: "#/components/schemas/DistrictHiringQueueItem"
+        ticksUntilNextStaff:
+          type: ["integer", "null"]
+        expenses:
+          $ref: "#/components/schemas/DistrictServiceExpenses"
+      required:
+        - utilityWorkers
+        - policeOfficers
+        - firefighters
+        - hiringQueue
+        - ticksUntilNextStaff
+        - expenses
+
+    DistrictHireRequest:
+      type: object
+      properties:
+        service:
+          $ref: "#/components/schemas/DistrictServiceType"
+        count:
+          type: integer
+          minimum: 1
+          maximum: 25
+          default: 1
+      required:
+        - service
+
+    District:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+          enum: [society, economy, government]
+        mapX:
+          type: string
+        mapY:
+          type: string
+        boundaryPoints:
+          type: string
+        metrics:
+          $ref: "#/components/schemas/DistrictMetrics"
+        services:
+          $ref: "#/components/schemas/DistrictServiceState"
+        incidents:
+          type: array
+          items:
+            $ref: "#/components/schemas/DistrictIncident"
+      required:
+        - id
+        - name
+        - category
+        - mapX
+        - mapY
+        - boundaryPoints
+        - metrics
+        - services
+        - incidents
 
     SimulationState:
       type: object

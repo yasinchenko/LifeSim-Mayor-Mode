@@ -9,6 +9,147 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface DistrictMetrics {
+  /** Public safety, 0-100 */
+  safety: number;
+  /** Everyday comfort, 0-100 */
+  comfort: number;
+  /** Incident and failure risk, 0-100 */
+  accidentRisk: number;
+  /** Mayor reputation among district residents, 0-100 */
+  mayorReputationResidents: number;
+  /** Business trust in the district, 0-100 */
+  businessTrust: number;
+  /** Poverty level, 0-100 */
+  poverty: number;
+  /** Infrastructure condition, 0-100 */
+  infrastructure: number;
+}
+
+export type DistrictServiceType =
+  (typeof DistrictServiceType)[keyof typeof DistrictServiceType];
+
+export const DistrictServiceType = {
+  utility: "utility",
+  police: "police",
+  fire: "fire",
+} as const;
+
+export type DistrictInvestmentType =
+  (typeof DistrictInvestmentType)[keyof typeof DistrictInvestmentType];
+
+export const DistrictInvestmentType = {
+  beautification: "beautification",
+  safety: "safety",
+  infrastructure: "infrastructure",
+  business_zone: "business_zone",
+  social_support: "social_support",
+} as const;
+
+export interface DistrictInvestmentRequest {
+  type: DistrictInvestmentType;
+}
+
+export type DistrictIncidentType =
+  (typeof DistrictIncidentType)[keyof typeof DistrictIncidentType];
+
+export const DistrictIncidentType = {
+  fire: "fire",
+  protest: "protest",
+  utility_failure: "utility_failure",
+  staff_quit: "staff_quit",
+} as const;
+
+export type DistrictIncidentStatus =
+  (typeof DistrictIncidentStatus)[keyof typeof DistrictIncidentStatus];
+
+export const DistrictIncidentStatus = {
+  active: "active",
+  resolved: "resolved",
+  ignored: "ignored",
+  expired: "expired",
+} as const;
+
+export interface DistrictIncident {
+  id: string;
+  districtId: string;
+  type: DistrictIncidentType;
+  status: DistrictIncidentStatus;
+  createdTick: number;
+  createdDay: number;
+  deadlineTick: number;
+  deadlineDay: number;
+  severity: number;
+  requiredService: DistrictServiceType | null;
+  basePenalty: number;
+  ignoredPenalty: number;
+}
+
+export interface DistrictIncidentActionResponse {
+  incident: DistrictIncident;
+  /** Response effectiveness, 0-1 */
+  effectiveness: number;
+  /** Applied residents reputation delta */
+  reputationDelta: number;
+  /** True when service staff was below the district baseline */
+  partial: boolean;
+}
+
+export interface DistrictHiringQueueItem {
+  service: DistrictServiceType;
+  count: number;
+  ticksRemaining: number;
+}
+
+export interface DistrictServiceExpenses {
+  utility: number;
+  police: number;
+  fire: number;
+  salaries: number;
+  inventory: number;
+  total: number;
+}
+
+export interface DistrictServiceState {
+  utilityWorkers: number;
+  policeOfficers: number;
+  firefighters: number;
+  hiringQueue: DistrictHiringQueueItem[];
+  /** @nullable */
+  ticksUntilNextStaff: number | null;
+  expenses: DistrictServiceExpenses;
+}
+
+export interface DistrictHireRequest {
+  service: DistrictServiceType;
+  /**
+   * @minimum 1
+   * @maximum 25
+   */
+  count?: number;
+}
+
+export type DistrictCategory =
+  (typeof DistrictCategory)[keyof typeof DistrictCategory];
+
+export const DistrictCategory = {
+  society: "society",
+  economy: "economy",
+  government: "government",
+} as const;
+
+export interface District {
+  id: string;
+  name: string;
+  category: DistrictCategory;
+  mapX: string;
+  mapY: string;
+  boundaryPoints: string;
+  metrics: DistrictMetrics;
+  services: DistrictServiceState;
+  incidents: DistrictIncident[];
+}
+
 export type SimulationStateScenarioType =
   (typeof SimulationStateScenarioType)[keyof typeof SimulationStateScenarioType];
 
@@ -638,6 +779,10 @@ export interface TopAgentsResponse {
 export interface ErrorResponse {
   error: string;
 }
+
+export type ListDistrictIncidentsParams = {
+  status?: DistrictIncidentStatus;
+};
 
 export type ListAgentsParams = {
   page?: number;
